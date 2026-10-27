@@ -409,7 +409,7 @@ export default function App() {
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-xs font-semibold truncate ${theme.heading}`}>พยาบาลวิชาชีพเวร</p>
-              <p className={`text-[11px] truncate ${theme.subText}`}>ห้องพยาบาลกลาง มก.</p>
+              <p className={`text-[11px] truncate ${theme.subText}`}>ห้องพยาบาล ม.กาฬสินธุ์</p>
             </div>
           </div>
         </div>
@@ -426,7 +426,7 @@ export default function App() {
             </h1>
             <span className="text-slate-300 dark:text-slate-600">/</span>
             <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${darkMode ? 'bg-slate-800/80 text-teal-400 border-slate-700/50' : 'bg-teal-50 text-teal-700 border-teal-200'}`}>
-              มหาวิทยาลัยเกษตรศาสตร์
+              มหาวิทยาลัยกาฬสินธุ์
             </span>
           </div>
 
