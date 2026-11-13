@@ -135,21 +135,16 @@ export default function App() {
     reaction: 'ผื่นคัน แน่นหน้าอก คลื่นไส้',
     severity: 'รุนแรงมาก (Anaphylaxis Risk)'
   });
-  const [toasts, setToasts] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [studentFilterRole, setStudentFilterRole] = useState<string>('ทั้งหมด');
 
+  // ฟังก์ชันแจ้งเตือน (ส่งเข้าไอคอนกระดิ่ง Bell มุมขวาบนเท่านั้น ไม่แสดง Pop-up ลอยให้รกหน้าจอ)
   const addToast = (title: string, message: string, type = 'success') => {
     const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, title, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4500);
-    // บันทึกลงระบบแจ้งเตือน (Notification Center)
     const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} น.`;
     setNotifications(prev => [{ id, title, message, type, time: timeStr, read: false }, ...prev].slice(0, 50));
   };
 
@@ -556,33 +551,6 @@ export default function App() {
 
   return (
     <div className={`flex h-screen font-sans overflow-hidden transition-colors duration-300 ${theme.bg}`}>
-      
-      {/* TOAST NOTIFICATION CONTAINER */}
-      <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none">
-        {toasts.map(toast => (
-          <div 
-            key={toast.id} 
-            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-2xl backdrop-blur-xl transition-all duration-300 animate-in slide-in-from-top-5 ${
-              toast.type === 'error' ? 'bg-rose-950/90 border-rose-500/50 text-rose-200' :
-              toast.type === 'warning' ? 'bg-amber-950/90 border-amber-500/50 text-amber-200' :
-              toast.type === 'info' ? 'bg-indigo-950/90 border-indigo-500/50 text-indigo-200' :
-              darkMode ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200' : 'bg-emerald-900 border-emerald-600 text-white shadow-lg'
-            }`}
-          >
-            {toast.type === 'error' ? <AlertTriangle className="text-rose-400 shrink-0 mt-0.5" size={20} /> :
-             toast.type === 'warning' ? <AlertCircle className="text-amber-400 shrink-0 mt-0.5" size={20} /> :
-             toast.type === 'info' ? <Activity className="text-indigo-400 shrink-0 mt-0.5" size={20} /> :
-             <CheckCircle2 className="text-emerald-300 shrink-0 mt-0.5" size={20} />}
-            <div className="flex-1 min-w-0">
-              <h4 className="font-semibold text-sm leading-tight">{toast.title}</h4>
-              <p className="text-xs opacity-90 mt-1">{toast.message}</p>
-            </div>
-            <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className="opacity-70 hover:opacity-100">
-              <X size={16} />
-            </button>
-          </div>
-        ))}
-      </div>
 
       {/* SIDEBAR NAVIGATION */}
       <aside className={`w-64 border-r flex flex-col shrink-0 z-20 backdrop-blur-md transition-colors duration-300 ${theme.sidebar}`}>
@@ -1068,14 +1036,10 @@ export default function App() {
                             className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           >
                             <option>ไม่ระบุ</option>
-                            <option>A+</option>
-                            <option>A-</option>
-                            <option>B+</option>
-                            <option>B-</option>
-                            <option>AB+</option>
-                            <option>AB-</option>
-                            <option>O+</option>
-                            <option>O-</option>
+                            <option>A</option>
+                            <option>B</option>
+                            <option>AB</option>
+                            <option>O</option>
                           </select>
                         </div>
                       </div>
