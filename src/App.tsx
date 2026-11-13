@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, ClipboardPlus, Pill, Upload, Users, BarChart3, Bot, Settings, Activity,
   AlertTriangle, Search, CheckCircle2, AlertCircle, X, Plus, Bed, QrCode, ShieldCheck,
   FileSpreadsheet as SheetIcon, Sun, Moon, Sparkles, ShieldAlert, RefreshCw, ChevronRight,
   GraduationCap, MessageCircleQuestion, LogOut, Trash2, Clock, RotateCcw, Database,
-  UserCheck, Briefcase, Award, HeartHandshake, Check, Bell
+  UserCheck, Briefcase, Award, HeartHandshake, Check, Bell, Send
 } from 'lucide-react';
 import { 
   INITIAL_STUDENTS, INITIAL_MEDICINES, INITIAL_VISITS, STANDARD_SYMPTOMS, 
@@ -12,7 +12,7 @@ import {
 } from './data';
 import { 
   analyzeSymptoms, checkDrugAllergy, getStockStatus, daysUntil, 
-  INTERVIEW_QUESTIONS, assessTriage, DRUG_FAMILY_OPTIONS 
+  INTERVIEW_QUESTIONS, assessTriage, DRUG_FAMILY_OPTIONS, answerQuestion 
 } from './ai';
 import AiChat from './components/AiChat';
 import Reports from './components/Reports';
@@ -139,6 +139,37 @@ export default function App() {
   const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [studentFilterRole, setStudentFilterRole] = useState<string>('ทั้งหมด');
+
+  // Floating AI Assistant Popup (มุมขวาล่างสำหรับถาม AI ขณะซักประวัติผู้ป่วย)
+  const [showAiPopup, setShowAiPopup] = useState(false);
+  const [popupMessages, setPopupMessages] = useState<Array<{ role: 'ai' | 'user'; text: string }>>([
+    {
+      role: 'ai',
+      text: 'สวัสดีครับ ผมคือ UniCare AI Assistant 🤖\nพร้อมช่วยแนะนำแนวทางซักถามอาการคนไข้, แนะนำคำถามเพิ่มเติม, และตรวจสอบความปลอดภัยด้านยาระหว่างซักถามคนไข้ครับ',
+    },
+  ]);
+  const [popupInput, setPopupInput] = useState('');
+  const [popupTyping, setPopupTyping] = useState(false);
+  const popupBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showAiPopup) {
+      popupBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [popupMessages, popupTyping, showAiPopup]);
+
+  const sendPopupMessage = (text: string) => {
+    const q = text.trim();
+    if (!q || popupTyping) return;
+    setPopupMessages(prev => [...prev, { role: 'user', text: q }]);
+    setPopupInput('');
+    setPopupTyping(true);
+    setTimeout(() => {
+      const reply = answerQuestion(q, { students, medicines, visits, beds });
+      setPopupMessages(prev => [...prev, { role: 'ai', text: reply }]);
+      setPopupTyping(false);
+    }, 350);
+  };
 
   // ฟังก์ชันแจ้งเตือน (ส่งเข้าไอคอนกระดิ่ง Bell มุมขวาบนเท่านั้น ไม่แสดง Pop-up ลอยให้รกหน้าจอ)
   const addToast = (title: string, message: string, type = 'success') => {
@@ -823,17 +854,17 @@ export default function App() {
                 <div className={`p-5 rounded-2xl transition-all ${theme.card}`}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>AI Assistant</p>
-                      <h3 className={`text-lg font-bold mt-2 tracking-tight text-teal-600 dark:text-teal-400 flex items-center gap-2`}>
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> พร้อมใช้งาน
+                      <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>ผู้มีประวัติแพ้ยา</p>
+                      <h3 className={`text-3xl font-black mt-2 tracking-tight ${theme.heading}`}>
+                        {students.filter(s => (s.allergies || []).length > 0).length} <span className={`text-sm font-normal ${theme.subText}`}>คน</span>
                       </h3>
                     </div>
-                    <div className="p-3 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
-                      <Bot size={22} />
+                    <div className="p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                      <ShieldAlert size={22} />
                     </div>
                   </div>
-                  <div className={`mt-4 flex items-center gap-2 text-xs ${theme.subText}`}>
-                    <span>คัดกรอง Triage & สถิติแบบเรียลไทม์</span>
+                  <div className="mt-4 flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                    <span>เฝ้าระวังความปลอดภัยด้านยาในระบบ</span>
                   </div>
                 </div>
               </div>
@@ -2137,6 +2168,135 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* FLOATING AI ASSISTANT WIDGET (มุมขวาล่างสำหรับถาม AI ขณะซักประวัติ) */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+        {/* POPUP CHAT WINDOW */}
+        {showAiPopup && (
+          <div className={`mb-3 w-96 max-w-[calc(100vw-2rem)] h-[520px] max-h-[82vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 ${
+            darkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100 shadow-teal-950/40' : 'bg-white/95 border-slate-200 text-slate-800 shadow-teal-900/10'
+          }`}>
+            {/* Header */}
+            <div className={`p-4 border-b flex items-center justify-between ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-100 bg-slate-50/80'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-teal-600/30">
+                  <Bot size={20} />
+                </div>
+                <div>
+                  <h4 className={`font-bold text-xs flex items-center gap-1.5 ${theme.heading}`}>
+                    UniCare AI Assistant
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  </h4>
+                  <p className={`text-[10px] ${theme.subText}`}>ผู้ช่วยซักประวัติอาการ & ตรวจความปลอดภัยยา</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAiPopup(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+                title="ปิดหน้าต่าง AI"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar text-xs">
+              {popupMessages.map((m, idx) => (
+                <div key={idx} className={`flex gap-2.5 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {m.role === 'ai' && (
+                    <div className="w-6 h-6 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                      <Sparkles size={12} />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-line ${
+                      m.role === 'user'
+                        ? 'bg-teal-600 text-white rounded-br-none shadow-md shadow-teal-600/20'
+                        : darkMode 
+                          ? 'bg-slate-800 text-slate-200 rounded-bl-none border border-slate-700/60' 
+                          : 'bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200/80'
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {popupTyping && (
+                <div className="flex gap-2 items-center text-xs text-teal-600 dark:text-teal-400 animate-pulse">
+                  <Sparkles size={14} />
+                  <span>AI กำลังวิเคราะห์ข้อมูลการซักประวัติ...</span>
+                </div>
+              )}
+              <div ref={popupBottomRef} />
+            </div>
+
+            {/* Quick Consultation Chips */}
+            <div className={`p-2 border-t overflow-x-auto flex gap-1.5 custom-scrollbar ${darkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-100 bg-slate-50/60'}`}>
+              {[
+                'แนวทางซักประวัติไข้หวัด',
+                'ปวดท้องเกร็ง ควรถามอะไรต่อ',
+                'แพ้ Penicillin จ่ายยาอะไรแทนได้',
+                'สัญญาณอันตราย Red Flags'
+              ].map(q => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => sendPopupMessage(q)}
+                  className="whitespace-nowrap text-[10px] px-2.5 py-1 rounded-full border border-teal-500/30 bg-teal-500/5 text-teal-700 dark:text-teal-300 hover:bg-teal-500/15 transition-all"
+                >
+                  + {q}
+                </button>
+              ))}
+            </div>
+
+            {/* Input Bar */}
+            <div className={`p-3 border-t flex gap-2 ${darkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
+              <input
+                type="text"
+                placeholder="ถาม AI เช่น คนไข้ปวดหัว ควรถามอะไรต่อ..."
+                value={popupInput}
+                onChange={e => setPopupInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendPopupMessage(popupInput);
+                  }
+                }}
+                className={`flex-1 px-3 py-2 text-xs rounded-xl border focus:outline-none focus:border-teal-500 ${theme.inputBg}`}
+              />
+              <button
+                type="button"
+                onClick={() => sendPopupMessage(popupInput)}
+                disabled={!popupInput.trim() || popupTyping}
+                className="p-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white transition-all shadow-md shadow-teal-600/30"
+              >
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Toggle Button */}
+        <button
+          type="button"
+          onClick={() => setShowAiPopup(!showAiPopup)}
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-full text-white font-bold text-xs shadow-2xl transition-all hover:scale-105 active:scale-95 group ${
+            showAiPopup
+              ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700 shadow-slate-900/50'
+              : 'bg-gradient-to-r from-teal-600 to-emerald-500 hover:brightness-110 shadow-teal-600/40 ring-4 ring-teal-500/20'
+          }`}
+          title="คลิกเพื่อเปิด AI ผู้ช่วยซักถามอาการคนไข้"
+        >
+          <div className="relative">
+            <Bot size={18} className="stroke-[2.5]" />
+            {!showAiPopup && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-300 animate-ping" />
+            )}
+          </div>
+          <span>{showAiPopup ? 'ปิดหน้าต่าง AI' : 'AI ซักถามผู้ป่วย'}</span>
+        </button>
+      </div>
 
     </div>
   );
