@@ -4,7 +4,7 @@ import {
   AlertTriangle, Search, CheckCircle2, AlertCircle, X, Plus, Bed, QrCode, ShieldCheck,
   FileSpreadsheet as SheetIcon, Sun, Moon, Sparkles, ShieldAlert, RefreshCw, ChevronRight,
   GraduationCap, MessageCircleQuestion, LogOut, Trash2, Clock, RotateCcw, Database,
-  UserCheck, Briefcase, Award, HeartHandshake, Check
+  UserCheck, Briefcase, Award, HeartHandshake, Check, Bell
 } from 'lucide-react';
 import { 
   INITIAL_STUDENTS, INITIAL_MEDICINES, INITIAL_VISITS, STANDARD_SYMPTOMS, 
@@ -136,6 +136,8 @@ export default function App() {
     severity: 'รุนแรงมาก (Anaphylaxis Risk)'
   });
   const [toasts, setToasts] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [studentFilterRole, setStudentFilterRole] = useState<string>('ทั้งหมด');
 
@@ -145,6 +147,20 @@ export default function App() {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4500);
+    // บันทึกลงระบบแจ้งเตือน (Notification Center)
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    setNotifications(prev => [{ id, title, message, type, time: timeStr, read: false }, ...prev].slice(0, 50));
+  };
+
+  const unreadNotifCount = notifications.filter(n => !n.read).length;
+
+  const markAllNotifsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
   };
 
   // รีเซ็ตแบบฟอร์มการรับบริการ
@@ -680,6 +696,71 @@ export default function App() {
               <span>เตียงว่าง: <strong className="font-bold">{availableBedsCount}/{beds.length}</strong></span>
             </button>
 
+            {/* ไอคอนแจ้งเตือน (Notification Bell) */}
+            <div className="relative">
+              <button
+                onClick={() => { setShowNotifPanel(!showNotifPanel); if (!showNotifPanel) markAllNotifsRead(); }}
+                className={`relative p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  darkMode 
+                    ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
+                }`}
+                title="แจ้งเตือน"
+              >
+                <Bell size={16} />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-rose-500 text-white text-[10px] font-black border-2 border-white dark:border-slate-900 animate-bounce">
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Dropdown Panel */}
+              {showNotifPanel && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowNotifPanel(false)} />
+                  <div className={`absolute right-0 top-12 z-40 w-80 max-h-96 rounded-2xl border shadow-2xl overflow-hidden ${theme.modalBg}`}>
+                    <div className={`sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                      <span className={`text-xs font-bold ${theme.heading}`}>🔔 แจ้งเตือน ({notifications.length})</span>
+                      <div className="flex gap-2">
+                        {notifications.length > 0 && (
+                          <button onClick={clearNotifications} className="text-[10px] text-rose-500 hover:underline font-semibold">ล้างทั้งหมด</button>
+                        )}
+                        <button onClick={() => setShowNotifPanel(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                      </div>
+                    </div>
+                    <div className="overflow-y-auto max-h-72 custom-scrollbar">
+                      {notifications.length === 0 ? (
+                        <div className="py-10 text-center">
+                          <Bell size={28} className={`mx-auto mb-2 ${theme.subText}`} />
+                          <p className={`text-xs ${theme.subText}`}>ยังไม่มีการแจ้งเตือน</p>
+                        </div>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n.id} className={`px-4 py-3 border-b last:border-b-0 text-xs transition-colors ${
+                            !n.read 
+                              ? darkMode ? 'bg-teal-500/5 border-slate-800' : 'bg-teal-50/50 border-slate-100' 
+                              : darkMode ? 'border-slate-800' : 'border-slate-100'
+                          }`}>
+                            <div className="flex items-start gap-2.5">
+                              <div className={`mt-0.5 shrink-0 w-2 h-2 rounded-full ${
+                                n.type === 'error' ? 'bg-rose-500' : n.type === 'warning' ? 'bg-amber-500' : n.type === 'info' ? 'bg-indigo-500' : 'bg-emerald-500'
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <p className={`font-bold leading-tight ${theme.heading}`}>{n.title}</p>
+                                <p className={`mt-0.5 ${theme.subText} leading-snug`}>{n.message}</p>
+                              </div>
+                              <span className={`text-[10px] font-mono shrink-0 ${theme.subText}`}>{n.time}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* Dark / Light Mode */}
             <button
               onClick={() => setDarkMode(!darkMode)}
@@ -691,26 +772,6 @@ export default function App() {
               title="สลับโหมดมืด/สว่าง"
             >
               {darkMode ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-indigo-600" />}
-            </button>
-
-            {/* สแกนบัตรนักศึกษา / QR Code */}
-            <button 
-              onClick={() => setShowQrModal(true)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-xs font-semibold ${
-                darkMode ? 'bg-slate-900 border-slate-800 text-teal-400 hover:bg-slate-800' : 'bg-white border-slate-200 text-teal-700 hover:bg-slate-50 shadow-sm'
-              }`}
-            >
-              <QrCode size={16} />
-              <span className="hidden sm:inline">สแกน QR</span>
-            </button>
-
-            {/* ปุ่มลัดลงรับบริการใหม่ */}
-            <button 
-              onClick={() => { resetVisitForm(); setActiveTab('visit-record'); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-semibold text-xs shadow-lg shadow-teal-500/20 hover:brightness-110 active:scale-95 transition-all"
-            >
-              <Plus size={16} className="stroke-[3]" />
-              <span>บันทึกผู้รับบริการ</span>
             </button>
           </div>
         </header>
