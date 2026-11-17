@@ -13,11 +13,12 @@ const GoogleLogo = () => (
 );
 
 export default function LoginPage({
-  darkMode, onToggleDark, onGoogle, error, loading, configured, onConfigSaved,
+  darkMode, onToggleDark, onGoogle, onDirectEmail, error, loading, configured, onConfigSaved,
 }: {
   darkMode: boolean;
   onToggleDark: () => void;
   onGoogle: () => void;
+  onDirectEmail: (email: string) => void;
   error: string;
   loading: boolean;
   configured: boolean;
@@ -26,6 +27,14 @@ export default function LoginPage({
   const [showCfg, setShowCfg] = useState(!configured);
   const [url, setUrl] = useState(() => getSupabaseConfig().url);
   const [key, setKey] = useState(() => getSupabaseConfig().key);
+  const [directEmail, setDirectEmail] = useState('');
+
+  const handleDirectSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (directEmail.trim()) {
+      onDirectEmail(directEmail.trim());
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-blue-800 via-blue-600 to-sky-500 relative">
@@ -68,10 +77,64 @@ export default function LoginPage({
             </div>
           )}
 
+          {/* ฟอร์มเข้าสู่ระบบด้วยอีเมลมหาวิทยาลัยโดยตรง */}
+          <form onSubmit={handleDirectSubmit} className="mt-5 space-y-2">
+            <label className="block text-xs font-bold text-slate-700">
+              อีเมลมหาวิทยาลัยกาฬสินธุ์ (@{ALLOWED_DOMAIN})
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={directEmail}
+                onChange={e => setDirectEmail(e.target.value)}
+                placeholder={`เช่น napssakorn.ti@${ALLOWED_DOMAIN}`}
+                className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
+              >
+                เข้าสู่ระบบ
+              </button>
+            </div>
+          </form>
+
+          {/* ปุ่มลัดสำหรับคลิกเข้าทดสอบได้ทันที */}
+          <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-1.5">
+            <p className="font-semibold text-slate-600">⚡ ปุ่มลัดทดสอบระบบ (คลิกเข้าได้ทันที):</p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => onDirectEmail(`napssakorn.ti@${ALLOWED_DOMAIN}`)}
+                className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-semibold"
+                title="สิทธิ์ผู้ดูแลระบบ/พยาบาล"
+              >
+                🏥 เจ้าหน้าที่ (napssakorn.ti)
+              </button>
+              <button
+                type="button"
+                onClick={() => onDirectEmail(`66010012@${ALLOWED_DOMAIN}`)}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold"
+                title="สิทธิ์นักศึกษา/บุคลากร"
+              >
+                🎓 นักศึกษา (66010012)
+              </button>
+            </div>
+          </div>
+
+          <div className="relative my-4 flex items-center justify-center">
+            <div className="border-t border-slate-200 w-full"></div>
+            <span className="bg-white px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+              หรือผ่าน Google OAuth
+            </span>
+            <div className="border-t border-slate-200 w-full"></div>
+          </div>
+
           <button
+            type="button"
             onClick={onGoogle}
             disabled={loading || !configured}
-            className="mt-6 w-full py-3 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50 font-bold text-sm flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50 font-bold text-xs flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <GoogleLogo />
             {loading ? 'กำลังตรวจสอบ...' : 'ลงชื่อเข้าใช้ด้วย Google'}

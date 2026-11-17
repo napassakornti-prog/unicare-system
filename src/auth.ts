@@ -34,31 +34,76 @@ export function saveLocalAdminEmails(list: string[]) {
 
 export const emailToId = (email: string) => email.split('@')[0].toLowerCase();
 
+const LOCAL_USER_KEY = 'unicare_local_auth_user';
+
+export function getLocalAuthUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function signInWithEmailDirect(emailInput: string, customName?: string): { success: boolean; error?: string; user?: AuthUser } {
+  const email = emailInput.trim().toLowerCase();
+  if (!email) return { success: false, error: 'กรุณากรอกอีเมลมหาวิทยาลัย' };
+  if (!isUniversityEmail(email)) {
+    return { success: false, error: `อีเมลต้องลงท้ายด้วย @${ALLOWED_DOMAIN} เท่านั้น (เช่น napssakorn.ti@${ALLOWED_DOMAIN})` };
+  }
+  const prefix = email.split('@')[0];
+  const name = customName || (getAdminEmails().includes(email) ? 'ผู้ดูแลระบบ (' + prefix + ')' : 'นักศึกษา / บุคลากร (' + prefix + ')');
+  const user: AuthUser = {
+    email,
+    name,
+    role: getAdminEmails().includes(email) ? 'admin' : 'user',
+  };
+  localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(user));
+  return { success: true, user };
+}
+
 // ฟังสถานะการล็อกอิน (รวมถึงตอนกลับมาจากหน้า Google) และตรวจโดเมนอีเมลทุกครั้ง
 export function initAuth(onUser: (u: AuthUser | null) => void, onError: (msg: string) => void): () => void {
+  const local = getLocalAuthUser();
+  if (local) {
+    onUser(local);
+  }
+
   const sb = getSupabase();
   if (!sb) {
-    onUser(null);
+    if (!local) onUser(null);
     return () => {};
   }
   const handle = async (session: any) => {
-    if (!session?.user) { onUser(null); return; }
+    if (!session?.user) {
+      const curLocal = getLocalAuthUser();
+      if (curLocal) onUser(curLocal);
+      else onUser(null);
+      return;
+    }
     const email = (session.user.email || '').toLowerCase();
     if (!isUniversityEmail(email)) {
       await sb.auth.signOut();
+      localStorage.removeItem(LOCAL_USER_KEY);
       onError(`อีเมล ${email || '(ไม่ทราบ)'} ไม่ใช่อีเมลมหาวิทยาลัย กรุณาเข้าสู่ระบบด้วยอีเมล @${ALLOWED_DOMAIN} เท่านั้น`);
       onUser(null);
       return;
     }
     const meta = session.user.user_metadata || {};
-    onUser({
+    const u: AuthUser = {
       email,
       name: meta.full_name || meta.name || email.split('@')[0],
       avatar: meta.avatar_url || meta.picture,
       role: getAdminEmails().includes(email) ? 'admin' : 'user',
-    });
+    };
+    localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(u));
+    onUser(u);
   };
-  sb.auth.getSession().then(({ data }) => handle(data.session)).catch(() => onUser(null));
+  sb.auth.getSession().then(({ data }) => handle(data.session)).catch(() => {
+    const curLocal = getLocalAuthUser();
+    if (curLocal) onUser(curLocal);
+    else onUser(null);
+  });
   const { data: sub } = sb.auth.onAuthStateChange((_event, session) => { handle(session); });
   return () => sub.subscription.unsubscribe();
 }
@@ -77,6 +122,9 @@ export async function signInWithGoogle(): Promise<string | null> {
 }
 
 export async function signOutUser() {
+  localStorage.removeItem(LOCAL_USER_KEY);
   const sb = getSupabase();
-  if (sb) await sb.auth.signOut();
+  if (sb) {
+    try { await sb.auth.signOut(); } catch {}
+  }
 }

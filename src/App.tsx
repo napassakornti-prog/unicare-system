@@ -28,7 +28,7 @@ import Reports from './components/Reports';
 import StudentPortal from './components/StudentPortal';
 import LoginPage from './components/LoginPage';
 import RequestsAdmin from './components/RequestsAdmin';
-import { AuthUser, initAuth, signInWithGoogle, signOutUser, emailToId, getAdminEmails, getLocalAdminEmails, saveLocalAdminEmails, ALLOWED_DOMAIN } from './auth';
+import { AuthUser, initAuth, signInWithGoogle, signInWithEmailDirect, signOutUser, emailToId, getAdminEmails, getLocalAdminEmails, saveLocalAdminEmails, ALLOWED_DOMAIN } from './auth';
 import { Req, REQ_STATUS, useRequests, createRequest, updateRequest } from './requests';
 
 // เสียงเตือนเมื่อมีการเรียกฉุกเฉิน
@@ -87,6 +87,18 @@ export default function App() {
     setLoginLoading(true);
     const err = await signInWithGoogle();
     if (err) { setAuthError(err); setLoginLoading(false); }
+  };
+
+  const handleDirectEmailLogin = (email: string) => {
+    setAuthError('');
+    const res = signInWithEmailDirect(email);
+    if (!res.success) {
+      setAuthError(res.error || 'ไม่สามารถเข้าสู่ระบบได้');
+      return;
+    }
+    if (res.user) {
+      setSession(res.user);
+    }
   };
 
   const handleSignOut = async () => {
@@ -979,6 +991,7 @@ export default function App() {
         darkMode={darkMode}
         onToggleDark={() => setDarkMode(!darkMode)}
         onGoogle={handleGoogleLogin}
+        onDirectEmail={handleDirectEmailLogin}
         error={authError}
         loading={loginLoading || (!authReady && !!cfg.url)}
         configured={!!(cfg.url && cfg.key)}
