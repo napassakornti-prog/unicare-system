@@ -224,11 +224,29 @@ CREATE TABLE IF NOT EXISTS beds (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 5. เพิ่มคอลัมน์ชื่อภาษาอังกฤษของยา
+ALTER TABLE medicines ADD COLUMN IF NOT EXISTS en TEXT;
+
+-- 6. ตารางคำขอจากนักศึกษา/บุคลากร (จองเตียง, ขอยา, แจ้งแพ้ยา, เรียกฉุกเฉิน)
+CREATE TABLE IF NOT EXISTS requests (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  status TEXT DEFAULT 'รอดำเนินการ',
+  requester_email TEXT,
+  requester_name TEXT,
+  requester_role TEXT,
+  payload JSONB DEFAULT '{}'::jsonb,
+  admin_note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- เปิด Row Level Security (RLS) ให้อ่าน/เขียนได้สำหรับโครงงาน
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE medicines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE beds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requests ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -244,5 +262,58 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access beds') THEN
     CREATE POLICY "Allow public access beds" ON beds FOR ALL USING (true) WITH CHECK (true);
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access requests') THEN
+    CREATE POLICY "Allow public access requests" ON requests FOR ALL USING (true) WITH CHECK (true);
+  END IF;
 END $$;
 `;
+
+// ---------- ซิงค์เตียง/ยาอัตโนมัติ (ให้พอร์ทัลผู้ใช้อ่านข้ามเครื่องได้) ----------
+export async function pushBeds(beds: any[]): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb || beds.length === 0) return false;
+  try {
+    const { error } = await sb.from('beds').upsert(beds.map(b => ({
+      id: b.id, name: b.name, status: b.status, student_id: b.studentId || null,
+      student_name: b.studentName || null, symptom: b.symptom || null, time_in: b.timeIn || null,
+    })));
+    if (error) return false;
+    const ids = beds.map(b => b.id);
+    await sb.from('beds').delete().not('id', 'in', '(' + ids.map(i => '"' + i + '"').join(',') + ')');
+    return true;
+  } catch { return false; }
+}
+
+export async function pushMedicines(meds: any[]): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb || meds.length === 0) return false;
+  const rows = (withEn: boolean) => meds.map(m => ({
+    id: m.id, name: m.name, category: m.category, stock: m.stock, min: m.min, unit: m.unit,
+    lot: m.lot, expiry: m.expiry, status: m.status, ...(withEn ? { en: m.en || '' } : {}),
+  }));
+  try {
+    let { error } = await sb.from('medicines').upsert(rows(true));
+    if (error) ({ error } = await sb.from('medicines').upsert(rows(false)));
+    return !error;
+  } catch { return false; }
+}
+
+export async function fetchBeds(): Promise<any[] | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb.from('beds').select('*').order('id');
+    if (error || !data || data.length === 0) return null;
+    return data.map((b: any) => ({ id: b.id, name: b.name, status: b.status, studentId: b.student_id, studentName: b.student_name, symptom: b.symptom, timeIn: b.time_in }));
+  } catch { return null; }
+}
+
+export async function fetchMedicines(): Promise<any[] | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb.from('medicines').select('*').order('id');
+    if (error || !data || data.length === 0) return null;
+    return data.map((m: any) => ({ id: m.id, name: m.name, en: m.en || '', category: m.category, stock: m.stock, min: m.min, unit: m.unit, lot: m.lot, expiry: m.expiry, status: m.status }));
+  } catch { return null; }
+}

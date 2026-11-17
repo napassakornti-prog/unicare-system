@@ -5,7 +5,7 @@ import {
   FileSpreadsheet as SheetIcon, Sun, Moon, Sparkles, ShieldAlert, RefreshCw, ChevronRight,
   GraduationCap, MessageCircleQuestion, LogOut, Trash2, Clock, RotateCcw, Database,
   UserCheck, Briefcase, Award, HeartHandshake, Check, Bell, Send, Cloud, Copy,
-  ArrowRight, ArrowLeft, Stethoscope, User, Lock, ExternalLink
+  ArrowRight, ArrowLeft, Stethoscope, User, Lock, ExternalLink, Inbox, Siren
 } from 'lucide-react';
 import { 
   INITIAL_STUDENTS, INITIAL_MEDICINES, INITIAL_VISITS, STANDARD_SYMPTOMS, 
@@ -20,12 +20,31 @@ import {
   getSupabaseConfig,
   saveSupabaseConfig,
   testSupabaseConnection,
-  syncLocalToSupabase,
-  SUPABASE_SCHEMA_SQL
+  syncLocalToSupabase,  SUPABASE_SCHEMA_SQL,
+  pushBeds, pushMedicines, fetchBeds, fetchMedicines
 } from './supabase';
 import AiChat from './components/AiChat';
 import Reports from './components/Reports';
 import StudentPortal from './components/StudentPortal';
+import LoginPage from './components/LoginPage';
+import RequestsAdmin from './components/RequestsAdmin';
+import { AuthUser, initAuth, signInWithGoogle, signOutUser, emailToId, getAdminEmails, getLocalAdminEmails, saveLocalAdminEmails, ALLOWED_DOMAIN } from './auth';
+import { Req, REQ_STATUS, useRequests, createRequest, updateRequest } from './requests';
+
+// เสียงเตือนเมื่อมีการเรียกฉุกเฉิน
+const playAlarm = () => {
+  try {
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AC();
+    [0, 0.35, 0.7].forEach(d => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880; g.gain.value = 0.2;
+      o.start(ctx.currentTime + d); o.stop(ctx.currentTime + d + 0.22);
+    });
+  } catch {}
+};
 
 // Key สำหรับเก็บบันทึกลงฐานข้อมูลใน Browser (Local Storage Database)
 const DB_KEYS = {
@@ -40,30 +59,41 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // ---------- โหมดการเข้าใช้งาน (Role-Based Access / Routing) ----------
-  // 'landing' = หน้าแรกเลือกสิทธิ์, 'staff' = สำหรับเจ้าหน้าที่พยาบาล (Admin), 'student' = สำหรับนักศึกษา/บุคลากร
-  const [portalMode, setPortalMode] = useState<'landing' | 'staff' | 'student'>(() => {
-    const path = window.location.pathname.toLowerCase();
-    const search = window.location.search.toLowerCase();
-    if (path.includes('admin') || search.includes('role=admin')) return 'staff';
-    if (path.includes('portal') || search.includes('role=student') || search.includes('role=portal')) return 'student';
-    const saved = localStorage.getItem(DB_KEYS.PORTAL_ROLE);
-    if (saved === 'staff' || saved === 'student') return saved;
-    return 'landing'; // เริ่มต้นที่หน้าเลือกสิทธิ์ เพื่อความชัดเจนในการนำเสนอ
-  });
+  // ---------- การยืนยันตัวตน (Google ด้วยอีเมลมหาวิทยาลัยเท่านั้น) ----------
+  const [session, setSession] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authNonce, setAuthNonce] = useState(0);
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  const switchPortal = (mode: 'landing' | 'staff' | 'student') => {
-    setPortalMode(mode);
-    localStorage.setItem(DB_KEYS.PORTAL_ROLE, mode);
-    if (mode === 'staff') {
-      window.history.pushState({}, '', '/admin');
-    } else if (mode === 'student') {
-      window.history.pushState({}, '', '/portal');
-    } else {
-      window.history.pushState({}, '', '/');
-    }
+  useEffect(() => {
+    setAuthReady(false);
+    return initAuth(
+      u => { setSession(u); setAuthReady(true); setLoginLoading(false); if (u) setAuthError(''); },
+      msg => setAuthError(msg)
+    );
+  }, [authNonce]);
+
+  // 'landing' = หน้าเข้าสู่ระบบ, 'staff' = เจ้าหน้าที่/แอดมิน, 'student' = นักศึกษา/อาจารย์/บุคลากร
+  const portalMode: 'landing' | 'staff' | 'student' = !session ? 'landing' : session.role === 'admin' ? 'staff' : 'student';
+
+  useEffect(() => {
+    const target = portalMode === 'staff' ? '/admin' : portalMode === 'student' ? '/portal' : '/';
+    if (window.location.pathname !== target) window.history.replaceState({}, '', target);
+  }, [portalMode]);
+
+  const handleGoogleLogin = async () => {
+    setAuthError('');
+    setLoginLoading(true);
+    const err = await signInWithGoogle();
+    if (err) { setAuthError(err); setLoginLoading(false); }
   };
-  
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    setSession(null);
+  };
+
   // ---------- 1) ฐานข้อมูลระบบ (Database State with LocalStorage Persistence) ----------
   const [visits, setVisits] = useState<any[]>(() => {
     try {
@@ -95,7 +125,7 @@ export default function App() {
   const [medicines, setMedicines] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem(DB_KEYS.MEDICINES);
-      return saved !== null ? JSON.parse(saved) : INITIAL_MEDICINES;
+      return saved !== null ? JSON.parse(saved).map((m: any) => ({ ...m, en: m.en ?? INITIAL_MEDICINES.find(i => i.name === m.name)?.en ?? '' })) : INITIAL_MEDICINES;
     } catch {
       return INITIAL_MEDICINES;
     }
@@ -133,6 +163,211 @@ export default function App() {
       });
     }
   }, []);
+
+  // ---------- คำขอจากผู้ใช้ (จองเตียง / ขอยา / แจ้งแพ้ยา / เรียกฉุกเฉิน) ----------
+  const { requests, loaded: reqLoaded, refresh: refreshRequests } = useRequests(!!session);
+  const myRequests = requests.filter(r => !!session && r.email === session.email);
+  const pendingRequestCount = requests.filter(r => r.status === REQ_STATUS.PENDING).length;
+  const pendingEmergencies = requests.filter(r => r.type === 'emergency' && r.status === REQ_STATUS.PENDING);
+  const seenReqIds = useRef<Set<string> | null>(null);
+  const [flash, setFlash] = useState<{ title: string; message: string; type: string } | null>(null);
+  const [adminEmails, setAdminEmails] = useState<string[]>(() => getLocalAdminEmails());
+  const [adminEmailInput, setAdminEmailInput] = useState('');
+  const [newBedName, setNewBedName] = useState('');
+
+  // แจ้งเตือนฝั่งเจ้าหน้าที่เมื่อมีคำขอใหม่ (ฉุกเฉินมีเสียงเตือน)
+  useEffect(() => {
+    if (portalMode !== 'staff' || !reqLoaded) return;
+    if (seenReqIds.current === null) {
+      seenReqIds.current = new Set(requests.map(r => r.id));
+      return;
+    }
+    const labels: Record<string, string> = { bed: 'จองเตียง', medicine: 'ขอยา', allergy: 'แจ้งประวัติแพ้ยา', emergency: 'เรียกฉุกเฉิน' };
+    requests.filter(r => !seenReqIds.current!.has(r.id)).forEach(r => {
+      seenReqIds.current!.add(r.id);
+      if (r.type === 'emergency') {
+        addToast('🚨 เรียกฉุกเฉิน', `${r.name} กดเรียกขอความช่วยเหลือ`, 'error');
+        playAlarm();
+      } else {
+        addToast('มีคำขอใหม่', `${r.name} ส่งคำขอ${labels[r.type] || ''}`, 'warning');
+      }
+    });
+  }, [requests, reqLoaded, portalMode]);
+
+  // ฝั่งผู้ใช้: ดึงสถานะเตียงและรายการยาจากฐานข้อมูลคลาวด์
+  const [remoteBeds, setRemoteBeds] = useState<any[] | null>(null);
+  const [remoteMeds, setRemoteMeds] = useState<any[] | null>(null);
+  useEffect(() => {
+    if (portalMode !== 'student') return;
+    let alive = true;
+    const load = async () => {
+      const [b, m] = await Promise.all([fetchBeds(), fetchMedicines()]);
+      if (!alive) return;
+      if (b) setRemoteBeds(b);
+      if (m) setRemoteMeds(m);
+    };
+    load();
+    const t = setInterval(load, 6000);
+    return () => { alive = false; clearInterval(t); };
+  }, [portalMode]);
+
+  // ฝั่งเจ้าหน้าที่: ส่งสถานะเตียง/ยาขึ้นคลาวด์อัตโนมัติ เพื่อให้พอร์ทัลผู้ใช้เห็นข้อมูลล่าสุด
+  useEffect(() => {
+    if (portalMode !== 'staff' || !getSupabaseConfig().url) return;
+    const t = setTimeout(() => { pushBeds(beds); }, 1200);
+    return () => clearTimeout(t);
+  }, [beds, portalMode]);
+  useEffect(() => {
+    if (portalMode !== 'staff' || !getSupabaseConfig().url) return;
+    const t = setTimeout(() => { pushMedicines(medicines); }, 1200);
+    return () => clearTimeout(t);
+  }, [medicines, portalMode]);
+
+  const nowTime = () => new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+
+  const allergiesByEmail = (email: string): string[] => {
+    const fromStudents = students.find(s => s.id === emailToId(email))?.allergies || [];
+    const fromReqs = requests
+      .filter(q => q.type === 'allergy' && q.email === email && q.status !== REQ_STATUS.REJECTED)
+      .map(q => q.payload?.drugName).filter(Boolean);
+    return Array.from(new Set([...fromStudents, ...fromReqs]));
+  };
+
+  const handleCreateRequest = async (type: Req['type'], payload: any) => {
+    if (!session) return;
+    await createRequest({ type, email: session.email, name: session.name, role: 'ผู้ใช้บริการ', payload });
+    refreshRequests();
+  };
+
+  const approveBedRequest = async (r: Req, bedId: string) => {
+    const bed = beds.find(b => b.id === bedId);
+    if (!bed || bed.status !== 'available') {
+      addToast('เตียงไม่ว่าง', 'กรุณาเลือกเตียงที่ว่างอยู่', 'warning');
+      return;
+    }
+    setBeds(prev => prev.map(b => b.id === bedId ? {
+      ...b, status: 'occupied', studentId: emailToId(r.email), studentName: r.name,
+      symptom: r.payload?.symptom || '-', timeIn: nowTime(), requestId: r.id,
+    } : b));
+    await updateRequest(r.id, { status: REQ_STATUS.APPROVED, payload: { ...r.payload, bedId, bedName: bed.name } });
+    refreshRequests();
+    addToast('อนุมัติการจองเตียง', `จัด ${bed.name} ให้ ${r.name} แล้ว`);
+  };
+
+  const finishBedRequest = async (r: Req) => {
+    const bedId = r.payload?.bedId;
+    if (bedId) {
+      setBeds(prev => prev.map(b => b.id === bedId ? {
+        ...b, status: 'available', studentId: null, studentName: null, symptom: null, timeIn: null, requestId: null,
+      } : b));
+    }
+    await updateRequest(r.id, { status: REQ_STATUS.DONE });
+    refreshRequests();
+    addToast('จำหน่ายผู้ป่วยแล้ว', `${r.payload?.bedName || 'เตียง'} ว่างพร้อมใช้งาน`);
+  };
+
+  const approveMedicineRequest = async (r: Req) => {
+    const items: any[] = r.payload?.items || [];
+    for (const i of items) {
+      const med = medicines.find(m => m.id === i.id || m.name === i.name);
+      if (!med || med.stock < i.qty) {
+        addToast('สต็อกไม่เพียงพอ', `${i.name} คงเหลือไม่พอสำหรับคำขอนี้`, 'error');
+        return;
+      }
+    }
+    const known = allergiesByEmail(r.email);
+    for (const i of items) {
+      const w = checkDrugAllergy(i.name + ' ' + (i.en || ''), known);
+      if (w && !window.confirm('⚠️ ' + i.name + ': ' + w.message + '\nยืนยันอนุมัติหรือไม่?')) return;
+    }
+    setMedicines(prev => prev.map(m => {
+      const it = items.find(i => i.id === m.id || i.name === m.name);
+      if (!it) return m;
+      const stock = m.stock - it.qty;
+      return { ...m, stock, status: getStockStatus({ stock, min: m.min }) };
+    }));
+    await updateRequest(r.id, { status: REQ_STATUS.APPROVED, adminNote: 'อนุมัติแล้ว กรุณารับยาที่ห้องพยาบาล' });
+    refreshRequests();
+    addToast('อนุมัติคำขอยา', `ตัดสต็อกยาให้ ${r.name} แล้ว`);
+  };
+
+  const approveAllergyRequest = async (r: Req) => {
+    const id = emailToId(r.email);
+    const p = r.payload || {};
+    const severe = String(p.severity || '').includes('รุนแรงมาก');
+    const detail = { drugName: p.drugName, drugFamily: p.drugFamily, reaction: p.reaction, severity: p.severity, verified: true, source: 'student' };
+    setStudents(prev => {
+      const ex = prev.find(s => s.id === id);
+      if (ex) {
+        return prev.map(s => s.id === id ? {
+          ...s,
+          allergies: Array.from(new Set([...(s.allergies || []), p.drugName])),
+          allergyReaction: p.reaction || s.allergyReaction,
+          severeAllergies: s.severeAllergies || severe,
+          allergyDetails: [...(s.allergyDetails || []), detail],
+        } : s);
+      }
+      return [...prev, {
+        id, role: 'นักศึกษา', name: r.name, firstName: r.name, lastName: '', faculty: '', department: '', year: '',
+        blood: 'ไม่ระบุ', phone: '', allergies: [p.drugName], allergyReaction: p.reaction || '',
+        severeAllergies: severe, allergyDetails: [detail], visitsCount: 0,
+      }];
+    });
+    await updateRequest(r.id, { status: REQ_STATUS.APPROVED });
+    refreshRequests();
+    addToast('ยืนยันประวัติแพ้ยา', `บันทึก ${p.drugName} ของ ${r.name} เข้าระบบแล้ว`);
+  };
+
+  const rejectRequest = async (r: Req, note: string) => {
+    await updateRequest(r.id, { status: REQ_STATUS.REJECTED, adminNote: note });
+    refreshRequests();
+    addToast('ปฏิเสธคำขอแล้ว', r.name);
+  };
+
+  const setRequestStatus = async (r: Req, status: string) => {
+    await updateRequest(r.id, { status });
+    refreshRequests();
+  };
+
+  const handleAddBed = () => {
+    const maxNo = beds.reduce((mx, b) => Math.max(mx, parseInt(String(b.id).replace(/\D/g, '')) || 0), 0);
+    const id = 'BED-' + String(maxNo + 1).padStart(2, '0');
+    const name = newBedName.trim() || ('เตียง ' + (beds.length + 1));
+    setBeds(prev => [...prev, { id, name, status: 'available', studentId: null, studentName: null, symptom: null, timeIn: null }]);
+    setNewBedName('');
+    addToast('เพิ่มเตียงสำเร็จ', name + ' พร้อมใช้งาน');
+  };
+
+  const handleRemoveBed = (bedId: string) => {
+    const b = beds.find(x => x.id === bedId);
+    if (!b) return;
+    if (b.status === 'occupied') {
+      addToast('ลบเตียงไม่ได้', 'เตียงนี้มีผู้ป่วยอยู่ กรุณาจำหน่ายก่อน', 'warning');
+      return;
+    }
+    if (!window.confirm('ต้องการลบ ' + b.name + ' ออกจากระบบหรือไม่?')) return;
+    setBeds(prev => prev.filter(x => x.id !== bedId));
+    addToast('ลบเตียงแล้ว', b.name);
+  };
+
+  const handleAddAdminEmail = () => {
+    const e = adminEmailInput.trim().toLowerCase();
+    if (!e.endsWith('@' + ALLOWED_DOMAIN)) {
+      addToast('อีเมลไม่ถูกต้อง', 'ต้องเป็นอีเมล @' + ALLOWED_DOMAIN + ' เท่านั้น', 'warning');
+      return;
+    }
+    const next = Array.from(new Set([...adminEmails, e]));
+    saveLocalAdminEmails(next);
+    setAdminEmails(next);
+    setAdminEmailInput('');
+    addToast('เพิ่มผู้ดูแลระบบแล้ว', e);
+  };
+
+  const handleRemoveAdminEmail = (e: string) => {
+    const next = adminEmails.filter(x => x !== e);
+    saveLocalAdminEmails(next);
+    setAdminEmails(next);
+  };
 
   // ---------- 2) ฟอร์มบันทึกเข้าใช้บริการ (Visit Record Form State) ----------
   const [patientRole, setPatientRole] = useState<'นักศึกษา' | 'อาจารย์' | 'เจ้าหน้าที่' | 'บุคลากร'>('นักศึกษา');
@@ -226,6 +461,8 @@ export default function App() {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} น.`;
     setNotifications(prev => [{ id, title, message, type, time: timeStr, read: false }, ...prev].slice(0, 50));
+    setFlash({ title, message, type });
+    setTimeout(() => setFlash(null), 4000);
   };
 
   const unreadNotifCount = notifications.filter(n => !n.read).length;
@@ -645,7 +882,7 @@ export default function App() {
   const [restockLot, setRestockLot] = useState('');
   const [restockExpiry, setRestockExpiry] = useState('');
   const [medFormOpen, setMedFormOpen] = useState(false);
-  const emptyNewMed = { name: '', category: MEDICINE_CATEGORIES[0], unit: MEDICINE_UNITS[0], stock: '0', min: '20', lot: '', expiry: '' };
+  const emptyNewMed = { name: '', en: '', category: MEDICINE_CATEGORIES[0], unit: MEDICINE_UNITS[0], stock: '0', min: '20', lot: '', expiry: '' };
   const [newMed, setNewMed] = useState(emptyNewMed);
 
   const handleConfirmRestock = () => {
@@ -684,7 +921,7 @@ export default function App() {
     const stock = Math.max(parseInt(newMed.stock) || 0, 0);
     const min = Math.max(parseInt(newMed.min) || 1, 1);
     const item = {
-      id, name, category: newMed.category, unit: newMed.unit, stock, min,
+      id, name, en: newMed.en.trim(), category: newMed.category, unit: newMed.unit, stock, min,
       lot: newMed.lot.trim() || `LOT-${new Date().getFullYear()}-${String(maxNo + 1).padStart(3, '0')}`,
       expiry: newMed.expiry || `${new Date().getFullYear() + 2}-12-31`,
       status: getStockStatus({ stock, min }),
@@ -709,6 +946,7 @@ export default function App() {
   const navItems = [
     { id: 'dashboard', label: 'แดชบอร์ด', icon: LayoutDashboard, category: 'หลัก' },
     { id: 'visit-record', label: 'บันทึกเข้าใช้บริการ', icon: ClipboardPlus, category: 'หลัก' },
+    { id: 'requests', label: 'คำขอจากผู้ใช้', icon: Inbox, category: 'หลัก', badge: pendingRequestCount },
     { id: 'inventory', label: 'สต็อกยา & เวชภัณฑ์', icon: Pill, category: 'หลัก', badge: lowStockMeds.length },
     { id: 'data-import', label: 'นำเข้าข้อมูล', icon: Upload, category: 'ข้อมูล' },
     { id: 'students', label: 'ทะเบียนผู้ป่วย & แพ้ยา', icon: Users, category: 'ข้อมูล', badge: pendingAllergyCount },
@@ -732,210 +970,84 @@ export default function App() {
   };
 
   // =========================================================================
-  // VIEW A: LANDING / PORTAL ENTRANCE SCREEN (หน้าเลือกสิทธิ์การเข้าใช้งาน)
+  // VIEW A: LOGIN (เข้าสู่ระบบด้วย Google อีเมลมหาวิทยาลัยเท่านั้น)
   // =========================================================================
   if (portalMode === 'landing') {
+    const cfg = getSupabaseConfig();
     return (
-      <div className={`min-h-screen flex flex-col justify-between transition-colors duration-300 ${theme.bg}`}>
-        {/* Landing Topbar */}
-        <header className="p-6 flex items-center justify-between max-w-7xl mx-auto w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-teal-500/25 font-bold">
-              <Activity size={24} className="stroke-[2.5]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={`text-xl font-black tracking-tight ${theme.heading}`}>UniCare</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">v2.0</span>
-              </div>
-              <p className={`text-xs ${theme.subText}`}>ระบบบริหารจัดการห้องพยาบาลอัจฉริยะ มหาวิทยาลัยกาฬสินธุ์</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className={`p-2.5 rounded-xl border text-xs font-semibold transition-all ${
-              darkMode 
-                ? 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800' 
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
-            }`}
-            title="สลับโหมดมืด/สว่าง"
-          >
-            {darkMode ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-indigo-600" />}
-          </button>
-        </header>
-
-        {/* Landing Hero Content */}
-        <main className="max-w-5xl mx-auto px-6 py-8 flex-1 flex flex-col justify-center items-center text-center">
-          <span className="px-3.5 py-1 rounded-full text-xs font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 mb-4 inline-flex items-center gap-1.5">
-            <Sparkles size={14} /> ระบบคัดกรองอาการและตรวจสอบการแพ้ยาอัตโนมัติ
-          </span>
-          <h1 className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-tight max-w-3xl leading-tight ${theme.heading}`}>
-            ยินดีต้อนรับสู่ระบบห้องพยาบาล <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-500">UniCare</span>
-          </h1>
-          <p className={`text-sm sm:text-base mt-3 max-w-2xl ${theme.subText}`}>
-            Smart Infirmary Management System • ปลอดภัยตามมาตรฐาน PDPA • เฝ้าระวังความปลอดภัยด้านยา
-          </p>
-
-          {/* TWO MAIN ROLE ENTRANCE CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mt-10 text-left">
-            
-            {/* Card 1: สำหรับเจ้าหน้าที่พยาบาล (Staff & Admin Portal) */}
-            <div 
-              onClick={() => switchPortal('staff')}
-              className={`p-8 rounded-3xl border shadow-xl hover:shadow-2xl transition-all cursor-pointer group hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between ${theme.card} border-teal-500/30 hover:border-teal-500`}
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-lg shadow-teal-500/30 group-hover:scale-105 transition-transform">
-                    <Stethoscope size={28} />
-                  </div>
-                  <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
-                    สำหรับ: พยาบาล / ผู้ดูแลระบบ
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className={`text-xl font-black ${theme.heading} group-hover:text-teal-600 transition-colors`}>
-                    พอร์ทัลเจ้าหน้าที่พยาบาล (Nursing Staff)
-                  </h3>
-                  <p className={`text-xs mt-1 leading-relaxed ${theme.subText}`}>
-                    เข้าสู่แดชบอร์ดบริหารห้องพยาบาล บันทึกการรักษา จ่ายยา ตรวจสอบการแพ้ยา จัดการเตียง และรายงานสถิติ
-                  </p>
-                </div>
-
-                <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <li className="flex items-center gap-2">✓ แดชบอร์ดสรุปสถิติ & สต็อกยาเรียลไทม์</li>
-                  <li className="flex items-center gap-2">✓ บันทึกการรักษา & ตรวจสอบแพ้ยาข้ามกลุ่ม</li>
-                  <li className="flex items-center gap-2">✓ ผังเตียงพักฟื้น 6 เตียง & ตัดสต็อกยาอัตโนมัติ</li>
-                  <li className="flex items-center gap-2">✓ รองรับฐานข้อมูล Supabase Cloud & LocalDB</li>
-                </ul>
-              </div>
-
-              <div className="pt-6">
-                <button 
-                  className="w-full py-3.5 rounded-2xl bg-teal-600 group-hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20 transition-all"
-                >
-                  <span>เข้าสู่ระบบห้องพยาบาล (Staff Portal)</span>
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Card 2: สำหรับนักศึกษาและบุคลากร (Student & Personnel Portal) */}
-            <div 
-              onClick={() => switchPortal('student')}
-              className={`p-8 rounded-3xl border shadow-xl hover:shadow-2xl transition-all cursor-pointer group hover:-translate-y-1 relative overflow-hidden flex flex-col justify-between ${theme.card} border-emerald-500/30 hover:border-emerald-500`}
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-                    <GraduationCap size={28} />
-                  </div>
-                  <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                    สำหรับ: นักศึกษา / บุคลากร
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className={`text-xl font-black ${theme.heading} group-hover:text-emerald-600 transition-colors`}>
-                    พอร์ทัลนักศึกษาและบุคลากร (Student Portal)
-                  </h3>
-                  <p className={`text-xs mt-1 leading-relaxed ${theme.subText}`}>
-                    เข้าสู่พอร์ทัลผู้รับบริการ บัตรประจำตัวสุขภาพดิจิทัล แจ้งประวัติการแพ้ยาด้วยตนเอง และตรวจสอบเตียงว่าง
-                  </p>
-                </div>
-
-                <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <li className="flex items-center gap-2">✓ บัตรประจำตัวสุขภาพดิจิทัล (Digital Health Card)</li>
-                  <li className="flex items-center gap-2">✓ แจ้งประวัติการแพ้ยาด้วยตนเองล่วงหน้า</li>
-                  <li className="flex items-center gap-2">✓ ตรวจสอบประวัติการเข้ารับบริการของตนเอง</li>
-                  <li className="flex items-center gap-2">✓ ดูสถานะเตียงว่างในห้องพยาบาลแบบเรียลไทม์</li>
-                </ul>
-              </div>
-
-              <div className="pt-6">
-                <button 
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all"
-                >
-                  <span>เข้าสู่พอร์ทัลผู้รับบริการ (User Portal)</span>
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </main>
-
-        {/* Landing Footer */}
-        <footer className="p-6 text-center text-xs text-slate-400 border-t border-slate-200 dark:border-slate-800">
-          <p>โครงงานปริญญานิพนธ์ สาขาวิชาวิศวกรรมคอมพิวเตอร์ คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม มหาวิทยาลัยกาฬสินธุ์</p>
-        </footer>
-      </div>
+      <LoginPage
+        darkMode={darkMode}
+        onToggleDark={() => setDarkMode(!darkMode)}
+        onGoogle={handleGoogleLogin}
+        error={authError}
+        loading={loginLoading || (!authReady && !!cfg.url)}
+        configured={!!(cfg.url && cfg.key)}
+        onConfigSaved={() => { setAuthError(''); setAuthNonce(n => n + 1); }}
+      />
     );
   }
 
   // =========================================================================
-  // VIEW B: STUDENT / USER PORTAL (มุมมองนักศึกษาและบุคลากร)
+  // VIEW B: PORTAL นักศึกษา / อาจารย์ / บุคลากร
   // =========================================================================
-  if (portalMode === 'student') {
+  if (portalMode === 'student' && session) {
     return (
       <div className={`min-h-screen flex flex-col transition-colors duration-300 ${theme.bg}`}>
-        {/* Student Mode Topbar */}
         <header className={`h-16 border-b px-6 flex items-center justify-between backdrop-blur-md ${theme.header}`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md font-bold">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md">
               <GraduationCap size={20} />
             </div>
             <div>
-              <span className={`font-black text-sm tracking-tight ${theme.heading}`}>UniCare Student Portal</span>
-              <p className={`text-[10px] ${theme.subText}`}>พอร์ทัลนักศึกษาและบุคลากร</p>
+              <span className={`font-black text-sm tracking-tight ${theme.heading}`}>UniCare</span>
+              <p className={`text-[10px] ${theme.subText}`}>ระบบห้องพยาบาล ม.กาฬสินธุ์</p>
             </div>
           </div>
-
           <div className="flex items-center gap-3">
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className={`p-2 rounded-xl border text-xs font-semibold ${
-                darkMode ? 'bg-slate-900 border-slate-800 text-amber-400' : 'bg-white border-slate-200 text-slate-700'
-              }`}
+              className={`p-2 rounded-xl border text-xs font-semibold ${darkMode ? 'bg-slate-900 border-slate-800 text-amber-400' : 'bg-white border-slate-200 text-slate-700'}`}
             >
               {darkMode ? <Sun size={15} /> : <Moon size={15} />}
             </button>
+            <div className="hidden sm:flex items-center gap-2">
+              {session.avatar ? (
+                <img src={session.avatar} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold">{session.name.charAt(0)}</div>
+              )}
+              <div className="leading-tight">
+                <p className={`text-xs font-bold ${theme.heading}`}>{session.name}</p>
+                <p className={`text-[10px] ${theme.subText}`}>{session.email}</p>
+              </div>
+            </div>
             <button
-              onClick={() => switchPortal('staff')}
-              className="px-3 py-1.5 rounded-xl border border-teal-500/30 text-teal-600 dark:text-teal-400 text-xs font-semibold hover:bg-teal-500/10 transition-colors"
+              onClick={handleSignOut}
+              className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 font-semibold"
             >
-              สำหรับเจ้าหน้าที่พยาบาล →
-            </button>
-            <button
-              onClick={() => switchPortal('landing')}
-              className={`text-xs px-3 py-1.5 rounded-xl border ${theme.subText} hover:text-rose-500 transition-colors`}
-            >
-              กลับหน้าเลือกสิทธิ์
+              <LogOut size={13} /> ออกจากระบบ
             </button>
           </div>
         </header>
 
-        <main className="flex-1 p-6 max-w-6xl mx-auto w-full">
-          <StudentPortal 
-            students={students} 
-            beds={beds}
-            visits={visits}
-            theme={theme} 
-            onDeclare={(id: string, data: any) => {
-              setStudents(prev => prev.map(s => s.id === id ? {
-                ...s,
-                allergies: Array.from(new Set([...s.allergies, data.drugName])),
-                allergyReaction: data.reaction,
-                allergyDetails: [...(s.allergyDetails || []), { ...data, verified: false, source: 'student' }]
-              } : s));
-              addToast('ส่งข้อมูลแพ้ยาแล้ว', `บันทึก ${data.drugName} รอยืนยันโดยเจ้าหน้าที่`);
-            }} 
+        <main className="flex-1 p-6 w-full">
+          <StudentPortal
+            user={session}
+            theme={theme}
+            beds={remoteBeds ?? beds}
+            medicines={remoteMeds ?? medicines}
+            myRequests={myRequests}
+            onCreate={handleCreateRequest}
             addToast={addToast}
-            onExitPortal={() => switchPortal('landing')}
           />
         </main>
+
+        {flash && (
+          <div className={`fixed bottom-6 right-6 z-50 max-w-sm p-4 rounded-2xl border shadow-2xl text-xs ${theme.modalBg} ${flash.type === 'error' ? 'border-rose-500' : flash.type === 'warning' ? 'border-amber-500' : 'border-emerald-500'}`}>
+            <p className={`font-bold ${theme.heading}`}>{flash.title}</p>
+            <p className={theme.subText}>{flash.message}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -1125,16 +1237,23 @@ export default function App() {
 
             {/* ปุ่มกลับหน้าเลือกสิทธิ์ (Landing) */}
             <button
-              onClick={() => switchPortal('landing')}
+              onClick={handleSignOut}
               className={`p-2.5 rounded-xl border text-xs font-semibold transition-all ${
                 darkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
               } hover:text-rose-500`}
-              title="ออกจากระบบ / กลับหน้าเลือกสิทธิ์"
+              title="ออกจากระบบ"
             >
               <LogOut size={16} />
             </button>
           </div>
-        </header>
+        </header>        {pendingEmergencies.length > 0 && (
+          <div className="px-8 py-3 bg-rose-600 text-white flex items-center justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-2 text-sm font-black">
+              <Siren size={20} /> เรียกฉุกเฉิน {pendingEmergencies.length} รายการ: {pendingEmergencies.map(e => e.name).join(', ')}
+            </div>
+            <button onClick={() => setActiveTab('requests')} className="px-4 py-1.5 rounded-xl bg-white text-rose-600 text-xs font-bold">ดูรายละเอียด</button>
+          </div>
+        )}
 
         {/* MAIN BODY VIEWS */}
         <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -1357,13 +1476,13 @@ export default function App() {
                 </div>
 
                 {/* FORM GRID */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="flex flex-col gap-6">
                   
                   {/* LEFT COLUMN: ข้อมูลผู้ป่วย + เตียง + ยา (7 cols) */}
-                  <div className="lg:col-span-7 space-y-6">
+                  <div className="contents">
                     
                     {/* 1. ข้อมูลผู้เข้ารับบริการ & ประเภท */}
-                    <div className={`p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
+ <div className={`order-1 p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
                           <UserCheck size={16} /> 1. ข้อมูลผู้เข้ารับบริการ
@@ -1603,10 +1722,10 @@ export default function App() {
                     </div>
 
                     {/* 3. เลือกเตียงพักฟื้น และดูเตียงที่ว่างเรียลไทม์ */}
-                    <div className={`p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
+ <div className={`order-3 p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
-                          <Bed size={16} /> 2. เลือกเตียงพักฟื้น (สถานะเตียงว่างเรียลไทม์)
+                          <Bed size={16} /> 3. เลือกเตียงพักฟื้น (สถานะเตียงว่างเรียลไทม์)
                         </span>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
                           availableBedsCount > 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600'
@@ -1683,10 +1802,10 @@ export default function App() {
                     </div>
 
                     {/* 4. รายการจ่ายยา & ระบบตรวจสอบการแพ้ยาอัตโนมัติ */}
-                    <div className={`p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
+ <div className={`order-4 p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
-                          <Pill size={16} /> 3. รายการจ่ายยา & เวชภัณฑ์
+                          <Pill size={16} /> 4. รายการจ่ายยา & เวชภัณฑ์
                         </span>
                         <span className={`text-[11px] ${theme.subText}`}>ระบบตรวจสอบแพ้ยาตรงและข้ามกลุ่มอัตโนมัติ</span>
                       </div>
@@ -1702,7 +1821,7 @@ export default function App() {
                             const risk = checkDrugAllergy(m.name, patientAllergies);
                             return (
                               <option key={m.id} value={m.id} disabled={m.stock <= 0}>
-                                {risk ? '⛔ ' : ''}{m.name} (คงเหลือ {m.stock} {m.unit}){risk ? ' — ผู้ป่วยแพ้ยา!' : ''}
+                                {risk ? '⛔ ' : ''}{m.name}{m.en ? ` (${m.en})` : ''} (คงเหลือ {m.stock} {m.unit}){risk ? ' — ผู้ป่วยแพ้ยา!' : ''}
                               </option>
                             );
                           })}
@@ -1756,11 +1875,11 @@ export default function App() {
                   </div>
 
                   {/* RIGHT COLUMN: อาการ + AI ช่วยวินิจฉัย + Triage + บันทึก (5 cols) */}
-                  <div className="lg:col-span-5 space-y-6">
+                  <div className="contents">
                     
-                    <div className={`p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
-                      <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
-                        <Activity size={16} /> 4. อาการและการคัดกรอง
+                    <div className={`order-2 p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
+ <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
+ <Activity size={16} /> 2. อาการและการคัดกรอง
                       </span>
 
                       {/* รายการอาการมาตรฐาน */}
@@ -1867,7 +1986,7 @@ export default function App() {
 
                     {/* AI Suggestion Box */}
                     {aiSuggestion && (
-                      <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/30 space-y-2.5 animate-in fade-in-50">
+                      <div className="order-2 p-4 rounded-2xl bg-teal-500/10 border border-teal-500/30 space-y-2.5 animate-in fade-in-50">
                         <div className="flex items-center gap-2 text-xs font-bold text-teal-700 dark:text-teal-300">
                           <Sparkles size={16} /> ผลวิเคราะห์จากระบบ AI Assistant
                         </div>
@@ -1902,10 +2021,10 @@ export default function App() {
                     )}
 
                     {/* ปุ่มบันทึกลงฐานข้อมูลหลัก */}
-                    <div className="space-y-2 pt-2">
-                      <button 
-                        type="button"
-                        onClick={handleSaveVisit}
+                    <div className="order-5 space-y-2 pt-2">
+ <button 
+ type="button"
+ onClick={handleSaveVisit}
                         className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-500 hover:from-teal-700 hover:to-emerald-600 text-white font-bold text-sm shadow-xl shadow-teal-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
                       >
                         <Database size={18} />
@@ -2135,7 +2254,7 @@ export default function App() {
                         return (
                           <tr key={m.id} className="transition-colors hover:bg-slate-500/5">
                             <td className="py-3.5 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">{m.id}</td>
-                            <td className="py-3.5 px-4 font-semibold">{m.name}</td>
+                            <td className="py-3.5 px-4 font-semibold">{m.name}{m.en && <span className={`block text-[10px] font-normal ${theme.subText}`}>({m.en})</span>}</td>
                             <td className="py-3.5 px-4">{m.category}</td>
                             <td className="py-3.5 px-4">
                               <p className="font-mono font-bold">{m.stock} {m.unit}</p>
@@ -2243,8 +2362,13 @@ export default function App() {
                       <div>
                         <label className="text-xs font-semibold">ชื่อยา (ภาษาไทย) *</label>
                         <input value={newMed.name} onChange={e => setNewMed({ ...newMed, name: e.target.value })} placeholder="เช่น ยาธาตุน้ำขาว"
-                          className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
-                      </div>
+ className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+ </div>
+ <div>
+ <label className="text-xs font-semibold">ชื่อภาษาอังกฤษ (แสดงใต้ชื่อไทย)</label>
+ <input value={newMed.en} onChange={e => setNewMed({ ...newMed, en: e.target.value })} placeholder="เช่น Aluminium-Magnesium antacid"
+ className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+ </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs font-semibold">หมวดหมู่</label>
@@ -2513,6 +2637,34 @@ export default function App() {
                 </div>
               </div>
 
+                            {/* Admin access management */}
+              <div className={`p-6 rounded-2xl border ${theme.card} space-y-3`}>
+                <h3 className={`font-bold text-base ${theme.heading}`}>สิทธิ์ผู้ดูแลระบบ (Admin Access)</h3>
+                <p className={`text-xs ${theme.subText}`}>
+                  อีเมล @{ALLOWED_DOMAIN} ที่อยู่ในรายการนี้จะเข้าหน้าเจ้าหน้าที่ได้ ส่วนอีเมลอื่นของมหาวิทยาลัยจะเข้าพอร์ทัลนักศึกษา/บุคลากร
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {getAdminEmails().map(e => (
+                    <span key={e} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 flex items-center gap-2">
+                      {e}
+                      {adminEmails.includes(e) && (
+                        <button onClick={() => handleRemoveAdminEmail(e)} className="text-rose-500 hover:text-rose-700"><X size={12} /></button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={adminEmailInput}
+                    onChange={e => setAdminEmailInput(e.target.value)}
+                    placeholder={'เช่น nurse01@' + ALLOWED_DOMAIN}
+                    className={`flex-1 px-3 py-2 rounded-xl border text-xs ${theme.inputBg}`}
+                  />
+                  <button onClick={handleAddAdminEmail} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700">เพิ่มผู้ดูแล</button>
+                </div>
+                <p className={`text-[11px] ${theme.subText}`}>รายการที่เพิ่มจะบันทึกในเบราว์เซอร์นี้ หากต้องการให้ใช้ได้ทุกเครื่อง ให้กำหนดตัวแปร VITE_ADMIN_EMAILS (คั่นด้วยเครื่องหมายจุลภาค) ใน Vercel</p>
+              </div>
+
               {/* Local Storage Database Management Card */}
               <div className={`p-6 rounded-2xl border ${theme.card} space-y-4`}>
                 <h3 className={`font-bold text-base ${theme.heading}`}>จัดการฐานข้อมูลภายในเครื่อง (Local Database Management)</h3>
@@ -2554,23 +2706,20 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEW 9: STUDENT PORTAL (PREVIEW IN ADMIN) */}
-          {activeTab === 'student-portal' && (
-            <StudentPortal 
-              students={students} 
+          {/* VIEW 9: USER REQUESTS (คำขอจากผู้ใช้) */}
+          {activeTab === 'requests' && (
+            <RequestsAdmin
+              requests={requests}
               beds={beds}
-              visits={visits}
-              theme={theme} 
-              onDeclare={(id: string, data: any) => {
-                setStudents(prev => prev.map(s => s.id === id ? {
-                  ...s,
-                  allergies: Array.from(new Set([...s.allergies, data.drugName])),
-                  allergyReaction: data.reaction,
-                  allergyDetails: [...(s.allergyDetails || []), { ...data, verified: false, source: 'student' }]
-                } : s));
-                addToast('ส่งข้อมูลแพ้ยาแล้ว', `บันทึก ${data.drugName} รอยืนยันโดยเจ้าหน้าที่`);
-              }} 
-              addToast={addToast} 
+              medicines={medicines}
+              allAllergiesByEmail={allergiesByEmail}
+              theme={theme}
+              onApproveBed={approveBedRequest}
+              onFinishBed={finishBedRequest}
+              onApproveMedicine={approveMedicineRequest}
+              onApproveAllergy={approveAllergyRequest}
+              onReject={rejectRequest}
+              onSetStatus={setRequestStatus}
             />
           )}
 
@@ -2841,7 +2990,7 @@ export default function App() {
       {/* 3. Bed Management Modal */}
       {bedManagementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in-50">
-          <div className={`max-w-2xl w-full p-6 rounded-3xl border shadow-2xl relative ${theme.modalBg}`}>
+          <div className={`max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 rounded-3xl border shadow-2xl relative ${theme.modalBg}`}>
             <button onClick={() => setBedManagementModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
               <X size={20} />
             </button>
@@ -2855,6 +3004,22 @@ export default function App() {
                   <h3 className={`font-bold text-base ${theme.heading}`}>จัดการเตียงนอนพักฟื้นห้องพยาบาล</h3>
                   <p className={`text-xs ${theme.subText}`}>ว่าง {availableBedsCount} จาก {beds.length} เตียง — กดปุ่มจำหน่ายผู้ป่วยเมื่ออาการดีขึ้นเพื่อคืนเตียงว่าง</p>
                 </div>
+              </div>
+
+                            <div className={`p-3 rounded-2xl border flex flex-wrap gap-2 items-center ${theme.cardInner}`}>
+                <input
+                  value={newBedName}
+                  onChange={e => setNewBedName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddBed(); }}
+                  placeholder="ชื่อเตียงใหม่ เช่น เตียง 7 (โซนหญิง)"
+                  className={`flex-1 min-w-[180px] px-3 py-2 rounded-xl border text-xs ${theme.inputBg}`}
+                />
+                <button
+                  onClick={handleAddBed}
+                  className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 flex items-center gap-1.5"
+                >
+                  <Plus size={14} /> เพิ่มเตียง
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
@@ -2885,7 +3050,10 @@ export default function App() {
                         </div>
                       </div>
                     ) : (
-                      <p className={`mt-2 ${theme.subText}`}>พร้อมรับผู้ป่วยพักฟื้น</p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className={`${theme.subText}`}>พร้อมรับผู้ป่วยพักฟื้น</p>
+                        <button onClick={() => handleRemoveBed(b.id)} className="text-[11px] text-rose-500 hover:text-rose-700 flex items-center gap-1"><Trash2 size={12} /> ลบเตียง</button>
+                      </div>
                     )}
                   </div>
                 ))}

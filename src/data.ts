@@ -1,4 +1,4 @@
-﻿export const USER_ROLES = ['นักศึกษา', 'อาจารย์', 'เจ้าหน้าที่', 'บุคลากร'] as const;
+export const USER_ROLES = ['นักศึกษา', 'อาจารย์', 'เจ้าหน้าที่', 'บุคลากร'] as const;
 
 export const STANDARD_FACULTIES = [
   'คณะวิศวกรรมศาสตร์และเทคโนโลยีอุตสาหกรรม',
@@ -38,9 +38,20 @@ export const MEDICINE_CATEGORIES = [
 
 export const MEDICINE_UNITS = ['เม็ด', 'แคปซูล', 'ขวด', 'หลอด', 'ซอง', 'กล่อง', 'แผ่น', 'ชิ้น', 'ห่อ', 'แอมพูล', 'ชุด', 'ม้วน'];
 
+const MED_EN: Record<number, string> = {
+  1: 'Paracetamol 500 mg', 2: 'Paracetamol syrup 120 mg/5 ml', 3: 'Ibuprofen 400 mg', 4: 'Mefenamic acid 500 mg', 5: 'Diclofenac 25 mg',
+  6: 'Aluminium-Magnesium antacid suspension', 7: 'Carminative mixture (red)', 8: 'Antacid tablet (Simethicone-Aluminium)', 9: 'Simethicone 80 mg', 10: 'Omeprazole 20 mg',
+  11: 'Oral Rehydration Salts (ORS)', 12: 'Activated charcoal', 13: 'Dimenhydrinate 50 mg', 14: 'Senna capsule',
+  15: 'Chlorpheniramine (CPM) 4 mg', 16: 'Loratadine 10 mg', 17: 'Cetirizine 10 mg', 18: 'Brown mixture (cough syrup)', 19: 'Bromhexine 8 mg', 20: 'Pseudoephedrine 60 mg', 21: 'Throat lozenge',
+  22: 'Amoxicillin 500 mg', 23: 'Azithromycin 250 mg',
+  24: 'Povidone-iodine (Betadine) 30 ml', 25: 'Alcohol 70% 450 ml', 26: 'Medicated oil (Balm)', 27: 'Calamine lotion', 28: 'Diclofenac gel', 29: 'Hydrocortisone cream 1%',
+  30: 'Artificial tears', 31: 'Isosorbide dinitrate 5 mg (sublingual)', 32: 'Salbutamol inhaler', 33: 'Normal saline 0.9% 500 ml (wound irrigation)',
+  34: 'Sterile gauze', 35: 'Adhesive bandage', 36: 'Cotton balls', 37: 'Elastic bandage', 38: 'Surgical mask', 39: 'Medical examination gloves', 40: 'Cooling gel pad', 41: 'Vitamin C 500 mg',
+};
+
 const M = (n: number, name: string, category: string, stock: number, min: number, unit: string, expiry: string) => ({
   id: `MED-${String(n).padStart(3, '0')}`,
-  name, category, stock, min, unit,
+  name, en: MED_EN[n] || '', category, stock, min, unit,
   lot: `LOT-2026-${String(n).padStart(3, '0')}`,
   expiry,
   status: 'ปกติ',
