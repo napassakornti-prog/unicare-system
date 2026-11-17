@@ -5,6 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f766e" />
     <title>UniCare | ระบบบริหารห้องพยาบาล</title>
+    <style>
+      /* ซ่อน Scrollbar (ไอเลื่อนๆ) ทุกเบราว์เซอร์ ทั้งหน้าเว็บและองค์ประกอบย่อย แต่ยังคงเลื่อน (Scroll) ได้ลื่นไหล */
+      html, body, #root, * {
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+      }
+      ::-webkit-scrollbar {
+        width: 0px !important;
+        height: 0px !important;
+        display: none !important;
+        background: transparent !important;
+      }
+      ::-webkit-scrollbar-thumb,
+      ::-webkit-scrollbar-track,
+      ::-webkit-scrollbar-corner,
+      ::-webkit-scrollbar-button {
+        display: none !important;
+        width: 0px !important;
+        height: 0px !important;
+        background: transparent !important;
+      }
+    </style>
   </head>
   <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
 </html>

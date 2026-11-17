@@ -16,11 +16,15 @@ body {
 }
 
 /* ซ่อนแถบ Scrollbar (ไอเลื่อนๆ) ทั้งหมดในระบบให้เนียนตา แต่ยังเลื่อนหน้าจอได้ตามปกติ */
-html, body, *, ::-webkit-scrollbar {
-  scrollbar-width: none !important; /* Firefox */
+html,
+body,
+#root,
+* {
+  scrollbar-width: none !important; /* Firefox, Modern Chrome 121+ */
   -ms-overflow-style: none !important; /* IE and Edge */
 }
 
+::-webkit-scrollbar,
 *::-webkit-scrollbar {
   display: none !important; /* Chrome, Safari, Edge */
   width: 0 !important;
@@ -28,12 +32,28 @@ html, body, *, ::-webkit-scrollbar {
   background: transparent !important;
 }
 
-.custom-scrollbar, .no-scrollbar {
+::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner,
+::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.custom-scrollbar,
+.no-scrollbar {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
 
-.custom-scrollbar::-webkit-scrollbar, .no-scrollbar::-webkit-scrollbar {
+.custom-scrollbar::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
