@@ -1,4 +1,4 @@
-// =====================================================================
+﻿// =====================================================================
 // UniCare Local AI Engine (Rule-based, ทำงานในเครื่องทั้งหมด)
 // - ไม่ส่งข้อมูลระบุตัวตนผู้ป่วยออกไปยัง AI ภายนอก (PDPA)
 // - ผลลัพธ์ทั้งหมดเป็น "ข้อเสนอแนะ" ผู้ตัดสินใจคือเจ้าหน้าที่
@@ -6,12 +6,12 @@
 
 // ---------- 1) กลุ่มยา สำหรับตรวจการแพ้ยาข้ามกลุ่ม (Cross-reactivity) ----------
 export const DRUG_FAMILIES: Record<string, string[]> = {
-  'Penicillins': ['penicillin', 'amoxicillin', 'ampicillin', 'cloxacillin', 'dicloxacillin'],
-  'NSAIDs': ['ibuprofen', 'aspirin', 'diclofenac', 'naproxen', 'mefenamic', 'piroxicam'],
+  'Penicillins': ['penicillin', 'amoxicillin', 'ampicillin', 'cloxacillin', 'dicloxacillin', 'เพนิซิลลิน', 'อะม็อกซีซิลลิน', 'แอมพิซิลลิน'],
+  'NSAIDs': ['ibuprofen', 'aspirin', 'diclofenac', 'naproxen', 'mefenamic', 'piroxicam', 'ไอบูโพรเฟน', 'แอสไพริน', 'ไดโคลฟีแนค', 'เมเฟนามิก', 'กรดเมเฟนามิก'],
   'Sulfonamides': ['sulfa', 'sulfamethoxazole', 'co-trimoxazole', 'bactrim'],
-  'Antihistamines': ['chlorpheniramine', 'cpm', 'cetirizine', 'loratadine'],
-  'Povidone-iodine': ['betadine', 'povidone', 'iodine'],
-  'Paracetamol': ['paracetamol', 'acetaminophen'],
+  'Antihistamines': ['chlorpheniramine', 'cpm', 'cetirizine', 'loratadine', 'คลอร์เฟนิรามีน', 'ซีพีเอ็ม', 'เซทิริซีน', 'ลอราทาดีน'],
+  'Povidone-iodine': ['betadine', 'povidone', 'iodine', 'เบตาดีน', 'โพวิโดน', 'ไอโอดีน'],
+  'Paracetamol': ['paracetamol', 'acetaminophen', 'พาราเซตามอล'],
 };
 
 export const DRUG_FAMILY_OPTIONS = [...Object.keys(DRUG_FAMILIES), 'อื่นๆ / ไม่ทราบกลุ่ม'];
@@ -59,15 +59,15 @@ export function daysUntil(dateStr: string) {
 
 // ---------- 3) กฎการจับคู่อาการ ----------
 export const SYMPTOM_RULES = [
-  { label: 'ไข้ / ติดเชื้อ', keywords: ['ไข้', 'fever'], dx: 'ภาวะไข้ สงสัยติดเชื้อทางเดินหายใจส่วนบน (URI)', meds: ['Paracetamol 500mg'], advice: 'เช็ดตัวลดไข้ ดื่มน้ำมากๆ วัดไข้ซ้ำทุก 4 ชม.' },
-  { label: 'ปวดศีรษะ', keywords: ['ปวดศีรษะ', 'ปวดหัว', 'ไมเกรน', 'headache'], dx: 'Tension headache / Migraine', meds: ['Paracetamol 500mg'], advice: 'พักในที่เงียบ แสงน้อย หลีกเลี่ยงหน้าจอ' },
-  { label: 'เจ็บคอ / ไอ / หวัด', keywords: ['เจ็บคอ', 'ไอ', 'น้ำมูก', 'cough', 'cold'], dx: 'Common cold / Pharyngitis', meds: ['Chlorpheniramine (CPM) 4mg', 'Paracetamol 500mg'], advice: 'ดื่มน้ำอุ่น สวมหน้ากากอนามัย พักผ่อนให้เพียงพอ' },
-  { label: 'ปวดท้อง / กรดไหลย้อน', keywords: ['ปวดท้อง', 'กรดไหลย้อน', 'gerd', 'abdominal'], dx: 'Dyspepsia / Acute gastritis', meds: ['Antacid Suspension 240ml'], advice: 'ทานอาหารอ่อน ตรงเวลา งดอาหารรสจัด' },
-  { label: 'คลื่นไส้ / อาเจียน', keywords: ['คลื่นไส้', 'อาเจียน', 'nausea'], dx: 'Nausea / Gastroenteritis', meds: ['Antacid Suspension 240ml'], advice: 'จิบน้ำทีละน้อย สังเกตภาวะขาดน้ำ' },
-  { label: 'ท้องเสีย', keywords: ['ท้องเสีย', 'ถ่ายเหลว', 'diarrhea'], dx: 'Acute diarrhea', meds: [], advice: 'ดื่มสารละลายเกลือแร่ (ORS) หากถ่ายเป็นมูกเลือดให้ส่งต่อ' },
-  { label: 'ผื่น / ภูมิแพ้', keywords: ['ผื่น', 'ลมพิษ', 'ภูมิแพ้', 'rash', 'allergy'], dx: 'Urticaria / Allergic reaction', meds: ['Chlorpheniramine (CPM) 4mg'], advice: 'หลีกเลี่ยงสิ่งกระตุ้น สังเกตอาการปากบวม หายใจลำบาก' },
-  { label: 'แผล / อุบัติเหตุ', keywords: ['แผล', 'อุบัติเหตุ', 'หกล้ม', 'wound', 'injury'], dx: 'Abrasion wound', meds: ['Normal Saline 0.9% 500ml', 'Betadine Solution 30ml'], advice: 'ล้างแผลด้วย NSS ทำแผลวันละ 1-2 ครั้ง ระวังแผลโดนน้ำ' },
-  { label: 'ปวดกล้ามเนื้อ', keywords: ['ปวดกล้ามเนื้อ', 'ออฟฟิศซินโดรม', 'ปวดหลัง', 'myalgia'], dx: 'Myalgia / Office syndrome', meds: ['Ibuprofen 400mg'], advice: 'ประคบร้อน ยืดเหยียดกล้ามเนื้อ ปรับท่านั่ง' },
+  { label: 'ไข้ / ติดเชื้อ', keywords: ['ไข้', 'fever'], dx: 'ภาวะไข้ สงสัยติดเชื้อทางเดินหายใจส่วนบน (URI)', meds: ['พาราเซตามอล 500 มก.'], advice: 'เช็ดตัวลดไข้ ดื่มน้ำมากๆ วัดไข้ซ้ำทุก 4 ชม.' },
+  { label: 'ปวดศีรษะ', keywords: ['ปวดศีรษะ', 'ปวดหัว', 'ไมเกรน', 'headache'], dx: 'Tension headache / Migraine', meds: ['พาราเซตามอล 500 มก.'], advice: 'พักในที่เงียบ แสงน้อย หลีกเลี่ยงหน้าจอ' },
+  { label: 'เจ็บคอ / ไอ / หวัด', keywords: ['เจ็บคอ', 'ไอ', 'น้ำมูก', 'cough', 'cold'], dx: 'Common cold / Pharyngitis', meds: ['คลอร์เฟนิรามีน (ซีพีเอ็ม) 4 มก.', 'พาราเซตามอล 500 มก.'], advice: 'ดื่มน้ำอุ่น สวมหน้ากากอนามัย พักผ่อนให้เพียงพอ' },
+  { label: 'ปวดท้อง / กรดไหลย้อน', keywords: ['ปวดท้อง', 'กรดไหลย้อน', 'gerd', 'abdominal'], dx: 'Dyspepsia / Acute gastritis', meds: ['ยาธาตุน้ำขาว (ยาลดกรด อะลูมิเนียม-แมกนีเซียม)'], advice: 'ทานอาหารอ่อน ตรงเวลา งดอาหารรสจัด' },
+  { label: 'คลื่นไส้ / อาเจียน', keywords: ['คลื่นไส้', 'อาเจียน', 'nausea'], dx: 'Nausea / Gastroenteritis', meds: ['ยาธาตุน้ำขาว (ยาลดกรด อะลูมิเนียม-แมกนีเซียม)'], advice: 'จิบน้ำทีละน้อย สังเกตภาวะขาดน้ำ' },
+  { label: 'ท้องเสีย', keywords: ['ท้องเสีย', 'ถ่ายเหลว', 'diarrhea'], dx: 'Acute diarrhea', meds: ['เกลือแร่ผงละลายน้ำ (ORS)', 'ยาแก้ท้องเสีย (ผงถ่านแอกทิเวเตด)'], advice: 'ดื่มสารละลายเกลือแร่ (ORS) หากถ่ายเป็นมูกเลือดให้ส่งต่อ' },
+  { label: 'ผื่น / ภูมิแพ้', keywords: ['ผื่น', 'ลมพิษ', 'ภูมิแพ้', 'rash', 'allergy'], dx: 'Urticaria / Allergic reaction', meds: ['คลอร์เฟนิรามีน (ซีพีเอ็ม) 4 มก.'], advice: 'หลีกเลี่ยงสิ่งกระตุ้น สังเกตอาการปากบวม หายใจลำบาก' },
+  { label: 'แผล / อุบัติเหตุ', keywords: ['แผล', 'อุบัติเหตุ', 'หกล้ม', 'wound', 'injury'], dx: 'Abrasion wound', meds: ['น้ำเกลือล้างแผล (นอร์มอลซาไลน์ 0.9%) 500 มล.', 'เบตาดีน (โพวิโดน-ไอโอดีน) 30 มล.'], advice: 'ล้างแผลด้วย NSS ทำแผลวันละ 1-2 ครั้ง ระวังแผลโดนน้ำ' },
+  { label: 'ปวดกล้ามเนื้อ', keywords: ['ปวดกล้ามเนื้อ', 'ออฟฟิศซินโดรม', 'ปวดหลัง', 'myalgia'], dx: 'Myalgia / Office syndrome', meds: ['ไอบูโพรเฟน 400 มก.'], advice: 'ประคบร้อน ยืดเหยียดกล้ามเนื้อ ปรับท่านั่ง' },
   { label: 'เวียนศีรษะ / เป็นลม', keywords: ['เวียนศีรษะ', 'หน้ามืด', 'เป็นลม', 'dizziness'], dx: 'Dizziness / Vasovagal syncope', meds: [], advice: 'นอนพักยกขาสูง วัดความดันโลหิตและน้ำตาลในเลือด' },
   { label: 'แน่นหน้าอก / หอบหืด', keywords: ['แน่นหน้าอก', 'หอบ', 'asthma', 'chest'], dx: 'Chest tightness / Asthma exacerbation (ต้องประเมินโดยบุคลากรทันที)', meds: [], advice: 'ให้ผู้ป่วยนั่งพัก เตรียมออกซิเจน พิจารณาส่งต่อโรงพยาบาลทันที', redFlag: true },
 ];

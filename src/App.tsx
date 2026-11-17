@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { 
   INITIAL_STUDENTS, INITIAL_MEDICINES, INITIAL_VISITS, STANDARD_SYMPTOMS, 
-  INITIAL_BEDS, STANDARD_FACULTIES, USER_ROLES, DEMO_STUDENTS, DEMO_VISITS, DEMO_BEDS 
+  INITIAL_BEDS, STANDARD_FACULTIES, USER_ROLES, DEMO_STUDENTS, DEMO_VISITS, DEMO_BEDS,
+  MEDICINE_CATEGORIES, MEDICINE_UNITS
 } from './data';
 import { 
   analyzeSymptoms, checkDrugAllergy, getStockStatus, daysUntil, 
@@ -31,7 +32,7 @@ const DB_KEYS = {
   VISITS: 'unicare_db_v2_visits',
   STUDENTS: 'unicare_db_v2_students',
   BEDS: 'unicare_db_v2_beds',
-  MEDICINES: 'unicare_db_v2_medicines',
+  MEDICINES: 'unicare_db_v3_medicines',
   PORTAL_ROLE: 'unicare_portal_role'
 };
 
@@ -635,6 +636,65 @@ export default function App() {
     }
   };
 
+  // ---------- Inventory (สต็อกยา) ----------
+  const [invSearch, setInvSearch] = useState('');
+  const [invCategory, setInvCategory] = useState('ทั้งหมด');
+  const [invFilter, setInvFilter] = useState<'all' | 'low' | 'expiring'>('all');
+  const [restockMed, setRestockMed] = useState<any>(null);
+  const [restockQty, setRestockQty] = useState('');
+  const [restockLot, setRestockLot] = useState('');
+  const [restockExpiry, setRestockExpiry] = useState('');
+  const [medFormOpen, setMedFormOpen] = useState(false);
+  const emptyNewMed = { name: '', category: MEDICINE_CATEGORIES[0], unit: MEDICINE_UNITS[0], stock: '0', min: '20', lot: '', expiry: '' };
+  const [newMed, setNewMed] = useState(emptyNewMed);
+
+  const handleConfirmRestock = () => {
+    const qty = parseInt(restockQty);
+    if (!restockMed || !qty || qty <= 0) {
+      addToast('จำนวนไม่ถูกต้อง', 'กรุณาระบุจำนวนที่ต้องการเติมให้มากกว่า 0', 'warning');
+      return;
+    }
+    setMedicines(prev => prev.map(m => {
+      if (m.id !== restockMed.id) return m;
+      const stock = m.stock + qty;
+      return {
+        ...m,
+        stock,
+        lot: restockLot.trim() || m.lot,
+        expiry: restockExpiry || m.expiry,
+        status: getStockStatus({ stock, min: m.min }),
+      };
+    }));
+    addToast('เติมสต็อกสำเร็จ', `เพิ่ม ${restockMed.name} จำนวน ${qty} ${restockMed.unit} (รวมเป็น ${restockMed.stock + qty} ${restockMed.unit})`);
+    setRestockMed(null);
+  };
+
+  const handleAddMedicine = () => {
+    const name = newMed.name.trim();
+    if (!name) {
+      addToast('กรุณากรอกชื่อยา', 'ต้องระบุชื่อยาภาษาไทยก่อนบันทึก', 'warning');
+      return;
+    }
+    if (medicines.some(m => m.name === name)) {
+      addToast('มีรายการยานี้แล้ว', 'ชื่อยานี้อยู่ในระบบแล้ว ให้ใช้ปุ่มเติมสต็อกแทน', 'warning');
+      return;
+    }
+    const maxNo = medicines.reduce((mx, m) => Math.max(mx, parseInt(String(m.id).replace(/\D/g, '')) || 0), 0);
+    const id = `MED-${String(maxNo + 1).padStart(3, '0')}`;
+    const stock = Math.max(parseInt(newMed.stock) || 0, 0);
+    const min = Math.max(parseInt(newMed.min) || 1, 1);
+    const item = {
+      id, name, category: newMed.category, unit: newMed.unit, stock, min,
+      lot: newMed.lot.trim() || `LOT-${new Date().getFullYear()}-${String(maxNo + 1).padStart(3, '0')}`,
+      expiry: newMed.expiry || `${new Date().getFullYear() + 2}-12-31`,
+      status: getStockStatus({ stock, min }),
+    };
+    setMedicines(prev => [...prev, item]);
+    addToast('เพิ่มรายการยาสำเร็จ', `เพิ่ม ${name} เข้าคลังยาเรียบร้อย`);
+    setNewMed(emptyNewMed);
+    setMedFormOpen(false);
+  };
+
   const handleCopySqlSchema = () => {
     navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
     addToast('คัดลอก SQL Script แล้ว', 'นำคำสั่งนี้ไปวางในหน้า SQL Editor ของ Supabase เพื่อสร้างตารางได้ทันที');
@@ -655,7 +715,6 @@ export default function App() {
     { id: 'reports', label: 'รายงาน & สถิติ', icon: BarChart3, category: 'ข้อมูล' },
     { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, category: 'ระบบ', highlight: true },
     { id: 'settings', label: 'ตั้งค่า & ฐานข้อมูล', icon: Settings, category: 'ระบบ' },
-    { id: 'student-portal', label: 'พอร์ทัลนักศึกษา', icon: GraduationCap, category: 'นักศึกษา' },
   ];
 
   const theme = {
@@ -939,14 +998,6 @@ export default function App() {
 
         {/* Sidebar Footer Controls */}
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
-          <button
-            onClick={() => switchPortal('student')}
-            className="w-full py-2 px-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center gap-2 transition-all border border-teal-500/20"
-          >
-            <GraduationCap size={15} />
-            <span>สลับไปพอร์ทัลนักศึกษา</span>
-          </button>
-
           <div className="flex gap-2">
             <button
               onClick={handleResetAllToZero}
@@ -1070,16 +1121,6 @@ export default function App() {
               title="สลับโหมดมืด/สว่าง"
             >
               {darkMode ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-indigo-600" />}
-            </button>
-
-            {/* ปุ่มสลับไปพอร์ทัลนักศึกษา */}
-            <button
-              onClick={() => switchPortal('student')}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-teal-500/30 text-teal-600 dark:text-teal-400 text-xs font-semibold hover:bg-teal-500/10 transition-colors"
-              title="สลับไปหน้าพอร์ทัลนักศึกษา"
-            >
-              <GraduationCap size={15} />
-              <span>พอร์ทัลนักศึกษา</span>
             </button>
 
             {/* ปุ่มกลับหน้าเลือกสิทธิ์ (Landing) */}
@@ -1954,20 +1995,119 @@ export default function App() {
           )}
 
           {/* VIEW 3: INVENTORY (สต็อกยา & เวชภัณฑ์) */}
-          {activeTab === 'inventory' && (
+          {activeTab === 'inventory' && (() => {
+            const statusLabel = (m: any) => {
+              if (m.stock <= 0) return 'หมดสต็อก';
+              const s = getStockStatus(m);
+              return s === 'วิกฤต' ? 'วิกฤต ใกล้หมด' : s === 'เหลือน้อย' ? 'เหลือน้อย ควรสั่งเพิ่ม' : 'ปกติ';
+            };
+            const statusClass = (m: any) => {
+              if (m.stock <= 0) return 'bg-rose-600 text-white border border-rose-600';
+              const s = getStockStatus(m);
+              return s === 'วิกฤต' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
+                s === 'เหลือน้อย' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20';
+            };
+            const barClass = (m: any) => {
+              const s = getStockStatus(m);
+              return s === 'วิกฤต' ? 'bg-rose-500' : s === 'เหลือน้อย' ? 'bg-amber-500' : 'bg-emerald-500';
+            };
+            const okCount = medicines.filter(m => getStockStatus(m) === 'ปกติ').length;
+            const lowCount = medicines.filter(m => getStockStatus(m) === 'เหลือน้อย').length;
+            const critCount = medicines.filter(m => getStockStatus(m) === 'วิกฤต').length;
+            const expSoonCount = medicines.filter(m => daysUntil(m.expiry) <= 90).length;
+
+            const filtered = medicines.filter(m => {
+              const q = invSearch.trim().toLowerCase();
+              if (q && !(m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))) return false;
+              if (invCategory !== 'ทั้งหมด' && m.category !== invCategory) return false;
+              if (invFilter === 'low' && getStockStatus(m) === 'ปกติ') return false;
+              if (invFilter === 'expiring' && daysUntil(m.expiry) > 90) return false;
+              return true;
+            });
+
+            const restockAfter = restockMed ? restockMed.stock + (parseInt(restockQty) || 0) : 0;
+            const restockAfterStatus = restockMed ? getStockStatus({ stock: restockAfter, min: restockMed.min }) : 'ปกติ';
+
+            const summaryCards = [
+              { key: 'all', label: 'ยาทั้งหมด', value: medicines.length, hint: 'รายการ', cls: 'text-teal-600' },
+              { key: 'ok', label: 'ปกติ', value: okCount, hint: 'ยังมีเพียงพอ', cls: 'text-emerald-600' },
+              { key: 'low', label: 'เหลือน้อย', value: lowCount + critCount, hint: 'ต้องสั่งเพิ่ม', cls: 'text-amber-600' },
+              { key: 'expiring', label: 'ใกล้หมดอายุ', value: expSoonCount, hint: 'ภายใน 90 วัน', cls: 'text-rose-600' },
+            ];
+
+            return (
             <div className="max-w-6xl mx-auto space-y-6">
+              {/* สรุปภาพรวมสต็อก */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {summaryCards.map(c => (
+                  <button
+                    key={c.key}
+                    onClick={() => setInvFilter(c.key === 'low' ? 'low' : c.key === 'expiring' ? 'expiring' : 'all')}
+                    className={`p-4 rounded-2xl border text-left transition-all hover:-translate-y-0.5 ${theme.card}`}
+                  >
+                    <p className={`text-[11px] font-semibold ${theme.subText}`}>{c.label}</p>
+                    <p className={`text-2xl font-black mt-1 ${c.cls}`}>{c.value}</p>
+                    <p className={`text-[10px] ${theme.subText}`}>{c.hint}</p>
+                  </button>
+                ))}
+              </div>
+
               <div className={`p-6 rounded-2xl border ${theme.card}`}>
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
                   <div>
                     <h3 className={`font-bold text-lg ${theme.heading}`}>สต็อกยา & เวชภัณฑ์ห้องพยาบาล</h3>
-                    <p className={`text-xs mt-1 ${theme.subText}`}>ตรวจสอบจำนวนคงเหลือ Lot ผลิต และวันหมดอายุแบบเรียลไทม์ (ตัดสต็อกอัตโนมัติเมื่อจ่ายยา)</p>
+                    <p className={`text-xs mt-1 ${theme.subText}`}>ตัดสต็อกอัตโนมัติเมื่อจ่ายยา และแจ้งเตือนเมื่อยาเหลือน้อยหรือใกล้หมดอายุ</p>
                   </div>
-                  <button 
-                    onClick={() => addToast('เพิ่มรายการยาสำเร็จ', 'เปิดหน้าต่างเพิ่มเวชภัณฑ์ใหม่')}
+                  <button
+                    onClick={() => setMedFormOpen(true)}
                     className="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-md flex items-center gap-1.5"
                   >
-                    <Plus size={16} /> เพิ่มยาในระบบ
+                    <Plus size={16} /> เพิ่มรายการยาใหม่
                   </button>
+                </div>
+
+                {/* คำอธิบายการอ่านสต็อก */}
+                <div className={`p-3 rounded-xl border text-[11px] mb-4 space-y-1.5 ${theme.cardInner}`}>
+                  <p className="font-bold text-teal-700 dark:text-teal-300">วิธีอ่านสถานะสต็อก</p>
+                  <p className={theme.subText}>
+                    <strong>จุดสั่งซื้อขั้นต่ำ</strong> คือจำนวนที่ต้องมีไว้อย่างน้อย เมื่อยาคงเหลือเท่ากับหรือต่ำกว่าค่านี้ ระบบจะเตือนให้เติมสต็อก
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span className={theme.subText}>ปกติ: คงเหลือมากกว่าจุดสั่งซื้อ</span></span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span className={theme.subText}>เหลือน้อย: ต่ำกว่าหรือเท่าจุดสั่งซื้อ</span></span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span><span className={theme.subText}>วิกฤต: เหลือไม่ถึง 30% ของจุดสั่งซื้อ</span></span>
+                  </div>
+                </div>
+
+                {/* ค้นหา / กรอง */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.subText}`} />
+                    <input
+                      value={invSearch}
+                      onChange={e => setInvSearch(e.target.value)}
+                      placeholder="ค้นหาชื่อยา หรือรหัสยา..."
+                      className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`}
+                    />
+                  </div>
+                  <select
+                    value={invCategory}
+                    onChange={e => setInvCategory(e.target.value)}
+                    className={`px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}
+                  >
+                    <option value="ทั้งหมด">ทุกหมวดหมู่</option>
+                    {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select
+                    value={invFilter}
+                    onChange={e => setInvFilter(e.target.value as any)}
+                    className={`px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}
+                  >
+                    <option value="all">แสดงทุกสถานะ</option>
+                    <option value="low">เฉพาะยาที่ต้องเติม</option>
+                    <option value="expiring">เฉพาะยาใกล้หมดอายุ</option>
+                  </select>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -1977,7 +2117,7 @@ export default function App() {
                         <th className="py-3 px-4 font-semibold">รหัสยา</th>
                         <th className="py-3 px-4 font-semibold">ชื่อยา / เวชภัณฑ์</th>
                         <th className="py-3 px-4 font-semibold">หมวดหมู่</th>
-                        <th className="py-3 px-4 font-semibold">จำนวนคงเหลือ</th>
+                        <th className="py-3 px-4 font-semibold min-w-[170px]">คงเหลือ</th>
                         <th className="py-3 px-4 font-semibold">จุดสั่งซื้อขั้นต่ำ</th>
                         <th className="py-3 px-4 font-semibold">Lot / วันหมดอายุ</th>
                         <th className="py-3 px-4 font-semibold">สถานะสต็อก</th>
@@ -1985,38 +2125,43 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                      {medicines.map(m => {
-                        const status = getStockStatus(m);
+                      {filtered.length === 0 && (
+                        <tr><td colSpan={8} className={`py-8 text-center ${theme.subText}`}>ไม่พบรายการยาที่ตรงกับเงื่อนไข</td></tr>
+                      )}
+                      {filtered.map(m => {
                         const days = daysUntil(m.expiry);
+                        const need = Math.max(m.min * 3 - m.stock, 0);
+                        const pct = Math.min(100, Math.round((m.stock / (m.min * 3)) * 100));
                         return (
                           <tr key={m.id} className="transition-colors hover:bg-slate-500/5">
                             <td className="py-3.5 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">{m.id}</td>
                             <td className="py-3.5 px-4 font-semibold">{m.name}</td>
                             <td className="py-3.5 px-4">{m.category}</td>
-                            <td className="py-3.5 px-4 font-mono font-bold">{m.stock} {m.unit}</td>
+                            <td className="py-3.5 px-4">
+                              <p className="font-mono font-bold">{m.stock} {m.unit}</p>
+                              <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 mt-1.5 overflow-hidden">
+                                <div className={`h-full rounded-full ${barClass(m)}`} style={{ width: `${pct}%` }}></div>
+                              </div>
+                              {getStockStatus(m) !== 'ปกติ' && (
+                                <p className="text-[10px] mt-1 text-amber-600 font-semibold">ขาดอีกประมาณ {need} {m.unit} จึงจะพอใช้</p>
+                              )}
+                            </td>
                             <td className="py-3.5 px-4 font-mono">{m.min} {m.unit}</td>
                             <td className="py-3.5 px-4 font-mono text-[11px]">
                               {m.lot} <br/>
-                              <span className={days <= 60 ? 'text-rose-500 font-bold' : theme.subText}>
+                              <span className={days <= 90 ? 'text-rose-500 font-bold' : theme.subText}>
                                 {m.expiry} ({days < 0 ? 'หมดอายุแล้ว' : `อีก ${days} วัน`})
                               </span>
                             </td>
                             <td className="py-3.5 px-4">
-                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                                status === 'วิกฤต' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
-                                status === 'เหลือน้อย' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                                'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                              }`}>
-                                {status}
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${statusClass(m)}`}>
+                                {statusLabel(m)}
                               </span>
                             </td>
                             <td className="py-3.5 px-4 text-right">
-                              <button 
-                                onClick={() => {
-                                  setMedicines(medicines.map(med => med.id === m.id ? { ...med, stock: med.stock + 50, status: getStockStatus({ stock: med.stock + 50, min: med.min }) } : med));
-                                  addToast('เติมสต็อกสำเร็จ', `เพิ่มจำนวนยา ${m.name} +50 ${m.unit} เรียบร้อย`);
-                                }}
-                                className="px-3 py-1 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold hover:bg-teal-500/20 text-xs"
+                              <button
+                                onClick={() => { setRestockMed(m); setRestockQty(String(Math.max(need, m.min))); setRestockLot(''); setRestockExpiry(''); }}
+                                className="px-3 py-1 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold hover:bg-teal-500/20 text-xs whitespace-nowrap"
                               >
                                 + เติมสต็อก
                               </button>
@@ -2028,8 +2173,130 @@ export default function App() {
                   </table>
                 </div>
               </div>
+
+              {/* หน้าต่างเติมสต็อก */}
+              {restockMed && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                  <div className={`w-full max-w-md rounded-2xl border p-6 space-y-4 ${theme.modalBg}`}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className={`font-bold text-base ${theme.heading}`}>เติมสต็อกยา</h3>
+                        <p className="text-xs font-semibold text-teal-600 mt-0.5">{restockMed.name}</p>
+                      </div>
+                      <button onClick={() => setRestockMed(null)} className={theme.subText}><X size={18} /></button>
+                    </div>
+
+                    <div className={`p-3 rounded-xl border text-xs grid grid-cols-3 gap-2 text-center ${theme.cardInner}`}>
+                      <div><p className={theme.subText}>คงเหลือตอนนี้</p><p className="font-black text-base">{restockMed.stock}</p></div>
+                      <div><p className={theme.subText}>จุดสั่งซื้อขั้นต่ำ</p><p className="font-black text-base">{restockMed.min}</p></div>
+                      <div><p className={theme.subText}>หลังเติมจะเป็น</p><p className="font-black text-base text-teal-600">{restockAfter}</p></div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold">จำนวนที่รับเข้า ({restockMed.unit})</label>
+                      <input
+                        type="number" min="1" value={restockQty}
+                        onChange={e => setRestockQty(e.target.value)}
+                        className={`mt-1 w-full px-3 py-2 rounded-xl border text-sm outline-none focus:border-teal-500 ${theme.inputBg}`}
+                      />
+                      <div className="flex gap-2 mt-2">
+                        {[10, 50, 100, 200].map(n => (
+                          <button key={n} onClick={() => setRestockQty(String((parseInt(restockQty) || 0) + n))}
+                            className="px-3 py-1 rounded-lg bg-teal-500/10 text-teal-600 text-xs font-semibold hover:bg-teal-500/20">+{n}</button>
+                        ))}
+                      </div>
+                      <p className={`text-[11px] mt-2 ${restockAfterStatus === 'ปกติ' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {restockAfterStatus === 'ปกติ' ? 'หลังเติมสต็อกแล้วสถานะจะเป็นปกติ' : 'หลังเติมแล้วยังต่ำกว่าจุดสั่งซื้อขั้นต่ำ ควรเติมเพิ่ม'}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold">Lot ใหม่ (ถ้ามี)</label>
+                        <input value={restockLot} onChange={e => setRestockLot(e.target.value)} placeholder={restockMed.lot}
+                          className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold">วันหมดอายุใหม่ (ถ้ามี)</label>
+                        <input type="date" value={restockExpiry} onChange={e => setRestockExpiry(e.target.value)}
+                          className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button onClick={() => setRestockMed(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold ${theme.cardInner}`}>ยกเลิก</button>
+                      <button onClick={handleConfirmRestock} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700">ยืนยันเติมสต็อก</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* หน้าต่างเพิ่มรายการยาใหม่ */}
+              {medFormOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                  <div className={`w-full max-w-lg rounded-2xl border p-6 space-y-4 ${theme.modalBg}`}>
+                    <div className="flex justify-between items-start">
+                      <h3 className={`font-bold text-base ${theme.heading}`}>เพิ่มรายการยา / เวชภัณฑ์ใหม่</h3>
+                      <button onClick={() => setMedFormOpen(false)} className={theme.subText}><X size={18} /></button>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold">ชื่อยา (ภาษาไทย) *</label>
+                        <input value={newMed.name} onChange={e => setNewMed({ ...newMed, name: e.target.value })} placeholder="เช่น ยาธาตุน้ำขาว"
+                          className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold">หมวดหมู่</label>
+                          <select value={newMed.category} onChange={e => setNewMed({ ...newMed, category: e.target.value })}
+                            className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}>
+                            {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold">หน่วยนับ</label>
+                          <select value={newMed.unit} onChange={e => setNewMed({ ...newMed, unit: e.target.value })}
+                            className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}>
+                            {MEDICINE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold">จำนวนเริ่มต้น</label>
+                          <input type="number" min="0" value={newMed.stock} onChange={e => setNewMed({ ...newMed, stock: e.target.value })}
+                            className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold">จุดสั่งซื้อขั้นต่ำ</label>
+                          <input type="number" min="1" value={newMed.min} onChange={e => setNewMed({ ...newMed, min: e.target.value })}
+                            className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+                          <p className={`text-[10px] mt-1 ${theme.subText}`}>ต่ำกว่าค่านี้ระบบจะเตือนให้เติมยา</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold">Lot ผลิต</label>
+                          <input value={newMed.lot} onChange={e => setNewMed({ ...newMed, lot: e.target.value })} placeholder="เช่น LOT-2026-050"
+                            className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold">วันหมดอายุ</label>
+                          <input type="date" value={newMed.expiry} onChange={e => setNewMed({ ...newMed, expiry: e.target.value })}
+                            className={`mt-1 w-full px-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button onClick={() => setMedFormOpen(false)} className={`px-4 py-2 rounded-xl border text-xs font-semibold ${theme.cardInner}`}>ยกเลิก</button>
+                      <button onClick={handleAddMedicine} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700">บันทึกรายการยา</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {/* VIEW 4: DATA IMPORT */}
           {activeTab === 'data-import' && (
