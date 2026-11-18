@@ -135,6 +135,52 @@ export async function signInWithGoogle(selectedRole: LoginRole = 'student'): Pro
   return error ? error.message : null;
 }
 
+const thaiAuthError = (msg: string): string => {
+  const m = (msg || '').toLowerCase();
+  if (m.includes('invalid login credentials')) return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+  if (m.includes('email not confirmed')) return 'ยังไม่ได้ยืนยันอีเมล กรุณาตรวจสอบกล่องจดหมายและกดลิงก์ยืนยันก่อน';
+  if (m.includes('already registered') || m.includes('already been registered')) return 'อีเมลนี้สมัครสมาชิกไว้แล้ว กรุณาเข้าสู่ระบบ';
+  if (m.includes('rate limit') || m.includes('too many')) return 'ส่งคำขอบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่';
+  if (m.includes('password') && m.includes('characters')) return 'รหัสผ่านสั้นเกินไป (ขั้นต่ำ 6 ตัวอักษร)';
+  return msg || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+};
+
+// เข้าสู่ระบบด้วยอีเมล + รหัสผ่าน (ใช้ Supabase Auth เดิม การตรวจโดเมน/สิทธิ์ทำใน initAuth)
+export async function signInWithPassword(email: string, password: string, selectedRole: LoginRole): Promise<string | null> {
+  const sb = getSupabase();
+  if (!sb) return 'ระบบยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
+  setSelectedLoginRole(selectedRole);
+  const { error } = await sb.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+  return error ? thaiAuthError(error.message) : null;
+}
+
+// สมัครสมาชิก คืนค่า { error, needsConfirm }
+export async function signUpWithPassword(
+  fullName: string, email: string, password: string, selectedRole: LoginRole
+): Promise<{ error: string | null; needsConfirm: boolean }> {
+  const sb = getSupabase();
+  if (!sb) return { error: 'ระบบยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ', needsConfirm: false };
+  setSelectedLoginRole(selectedRole);
+  const { data, error } = await sb.auth.signUp({
+    email: email.trim().toLowerCase(),
+    password,
+    options: { data: { full_name: fullName.trim() }, emailRedirectTo: window.location.origin + '/' },
+  });
+  if (error) return { error: thaiAuthError(error.message), needsConfirm: false };
+  // อีเมลที่สมัครแล้ว Supabase จะคืน identities ว่าง
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return { error: 'อีเมลนี้สมัครสมาชิกไว้แล้ว กรุณาเข้าสู่ระบบ', needsConfirm: false };
+  }
+  return { error: null, needsConfirm: !data.session };
+}
+
+export async function sendPasswordReset(email: string): Promise<string | null> {
+  const sb = getSupabase();
+  if (!sb) return 'ระบบยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
+  const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: window.location.origin + '/' });
+  return error ? thaiAuthError(error.message) : null;
+}
+
 export async function signOutUser() {
   const sb = getSupabase();
   if (sb) {
