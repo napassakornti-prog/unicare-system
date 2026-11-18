@@ -3,14 +3,18 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const STORAGE_KEY_URL = 'unicare_supabase_url';
 const STORAGE_KEY_KEY = 'unicare_supabase_anon_key';
 
+// ค่าเริ่มต้นสำหรับ Production บนคลาวด์ มหาวิทยาลัยกาฬสินธุ์
+export const DEFAULT_SUPABASE_URL = 'https://sjdnvqosivwyxhsqbftd.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_8Zs82KhXLJP7IjMbSDhl6w_uIicmNFD';
+
 export function getSupabaseConfig(): { url: string; key: string } {
   const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
   const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
   const savedUrl = localStorage.getItem(STORAGE_KEY_URL) || '';
   const savedKey = localStorage.getItem(STORAGE_KEY_KEY) || '';
   return {
-    url: savedUrl || envUrl,
-    key: savedKey || envKey
+    url: savedUrl || envUrl || DEFAULT_SUPABASE_URL,
+    key: savedKey || envKey || DEFAULT_SUPABASE_ANON_KEY
   };
 }
 
