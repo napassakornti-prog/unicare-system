@@ -28,7 +28,7 @@ import Reports from './components/Reports';
 import StudentPortal from './components/StudentPortal';
 import LoginPage from './components/LoginPage';
 import RequestsAdmin from './components/RequestsAdmin';
-import { AuthUser, initAuth, signInWithGoogle, signInWithEmailDirect, signOutUser, emailToId, getAdminEmails, getLocalAdminEmails, saveLocalAdminEmails, ALLOWED_DOMAIN } from './auth';
+import { AuthUser, initAuth, signInWithGoogle, signOutUser, emailToId, getVisibleAdminEmails, getLocalAdminEmails, saveLocalAdminEmails, ALLOWED_DOMAIN } from './auth';
 import { Req, REQ_STATUS, useRequests, createRequest, updateRequest } from './requests';
 
 // เสียงเตือนเมื่อมีการเรียกฉุกเฉิน
@@ -87,18 +87,6 @@ export default function App() {
     setLoginLoading(true);
     const err = await signInWithGoogle();
     if (err) { setAuthError(err); setLoginLoading(false); }
-  };
-
-  const handleDirectEmailLogin = (email: string) => {
-    setAuthError('');
-    const res = signInWithEmailDirect(email);
-    if (!res.success) {
-      setAuthError(res.error || 'ไม่สามารถเข้าสู่ระบบได้');
-      return;
-    }
-    if (res.user) {
-      setSession(res.user);
-    }
   };
 
   const handleSignOut = async () => {
@@ -964,7 +952,7 @@ export default function App() {
     { id: 'students', label: 'ทะเบียนผู้ป่วย & แพ้ยา', icon: Users, category: 'ข้อมูล', badge: pendingAllergyCount },
     { id: 'reports', label: 'รายงาน & สถิติ', icon: BarChart3, category: 'ข้อมูล' },
     { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, category: 'ระบบ', highlight: true },
-    { id: 'settings', label: 'ตั้งค่า & ฐานข้อมูล', icon: Settings, category: 'ระบบ' },
+    { id: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, category: 'ระบบ' },
   ];
 
   const theme = {
@@ -990,13 +978,9 @@ export default function App() {
       <LoginPage
         darkMode={darkMode}
         onToggleDark={() => setDarkMode(!darkMode)}
-        onGoogle={handleGoogleLogin}
-        onDirectEmail={handleDirectEmailLogin}
-        error={authError}
+        onGoogle={handleGoogleLogin}error={authError}
         loading={loginLoading || (!authReady && !!cfg.url)}
-        configured={!!(cfg.url && cfg.key)}
-        onConfigSaved={() => { setAuthError(''); setAuthNonce(n => n + 1); }}
-      />
+        configured={!!(cfg.url && cfg.key)}/>
     );
   }
 
@@ -1008,7 +992,7 @@ export default function App() {
       <div className={`min-h-screen flex flex-col transition-colors duration-300 ${theme.bg}`}>
         <header className={`h-16 border-b px-6 flex items-center justify-between backdrop-blur-md ${theme.header}`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 flex items-center justify-center text-white shadow-md">
               <GraduationCap size={20} />
             </div>
             <div>
@@ -1075,7 +1059,7 @@ export default function App() {
       <aside className={`w-64 border-r flex flex-col shrink-0 z-20 backdrop-blur-md transition-colors duration-300 ${theme.sidebar}`}>
         <div className={`h-20 flex items-center px-6 border-b justify-between ${theme.sidebarHeader}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-teal-500/20 font-bold">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 flex items-center justify-center text-white shadow-lg shadow-teal-500/20 font-bold">
               <Activity size={22} className="stroke-[2.5]" />
             </div>
             <div>
@@ -1121,27 +1105,21 @@ export default function App() {
           })}
         </nav>
 
-        {/* Sidebar Footer Controls */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
-          <div className="flex gap-2">
-            <button
-              onClick={handleResetAllToZero}
-              title="รีเซ็ตข้อมูลทั้งหมดให้เป็น 0"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-semibold transition-all"
-            >
-              <RotateCcw size={14} />
-              <span>รีเซ็ตเป็น 0</span>
-            </button>
-            <button
-              onClick={handleLoadDemo}
-              title="โหลดชุดข้อมูลตัวอย่างสำหรับสาธิต"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-teal-500/30 text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 text-xs font-semibold transition-all"
-            >
-              <Database size={14} />
-              <span>ข้อมูลตัวอย่าง</span>
-            </button>
-          </div>
-          <p className={`text-[10px] text-center ${theme.subText}`}>UniCare v2.0 • วิศวกรรมคอมพิวเตอร์ มกส.</p>
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+          {session && (
+            <div className="flex items-center gap-2.5">
+              {session.avatar ? (
+                <img src={session.avatar} alt="" className="w-9 h-9 rounded-full" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-sm font-bold">{session.name.charAt(0)}</div>
+              )}
+              <div className="min-w-0 leading-tight">
+                <p className={`text-xs font-bold truncate ${theme.heading}`}>{session.name}</p>
+                <p className={`text-[10px] truncate ${theme.subText}`}>{session.email}</p>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1275,7 +1253,7 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <div className="space-y-8 max-w-7xl mx-auto">
               {/* Banner */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-teal-900 to-emerald-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-teal-900 to-sky-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-xl bg-white/10 border border-white/20 shrink-0">
                     <ShieldCheck size={26} className="text-teal-300" />
@@ -1952,7 +1930,7 @@ export default function App() {
                           type="button"
                           onClick={() => handleRunAiSymptomChecker()}
                           disabled={aiAnalyzing}
-                          className="py-2.5 px-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-bold text-xs shadow-lg shadow-teal-500/20 hover:brightness-110 flex items-center justify-center gap-1.5"
+                          className="py-2.5 px-2 rounded-xl bg-gradient-to-r from-teal-600 to-sky-500 text-white font-bold text-xs shadow-lg shadow-teal-500/20 hover:brightness-110 flex items-center justify-center gap-1.5"
                         >
                           {aiAnalyzing ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />}
                           <span>AI วิเคราะห์ & แนะนำ</span>
@@ -2038,7 +2016,7 @@ export default function App() {
  <button 
  type="button"
  onClick={handleSaveVisit}
-                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-500 hover:from-teal-700 hover:to-emerald-600 text-white font-bold text-sm shadow-xl shadow-teal-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-sky-500 hover:from-teal-700 hover:to-sky-600 text-white font-bold text-sm shadow-xl shadow-teal-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
                       >
                         <Database size={18} />
                         <span>บันทึกข้อมูลการรักษาลงฐานข้อมูล</span>
@@ -2574,7 +2552,7 @@ export default function App() {
               <div className={`p-6 rounded-3xl border ${theme.card} space-y-4 shadow-xl border-teal-500/30`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white shadow-md shadow-teal-500/20">
+                    <div className="p-3 rounded-2xl bg-gradient-to-tr from-teal-600 to-sky-500 text-white shadow-md shadow-teal-500/20">
                       <Cloud size={22} />
                     </div>
                     <div>
@@ -2657,7 +2635,7 @@ export default function App() {
                   อีเมล @{ALLOWED_DOMAIN} ที่อยู่ในรายการนี้จะเข้าหน้าเจ้าหน้าที่ได้ ส่วนอีเมลอื่นของมหาวิทยาลัยจะเข้าพอร์ทัลนักศึกษา/บุคลากร
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {getAdminEmails().map(e => (
+                  {getVisibleAdminEmails().map(e => (
                     <span key={e} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 flex items-center gap-2">
                       {e}
                       {adminEmails.includes(e) && (
@@ -2749,7 +2727,7 @@ export default function App() {
             {/* Header */}
             <div className={`p-4 border-b flex items-center justify-between ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-100 bg-slate-50/80'}`}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-teal-600/30">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 text-white flex items-center justify-center shadow-md shadow-teal-600/30">
                   <Bot size={20} />
                 </div>
                 <div>
@@ -2854,7 +2832,7 @@ export default function App() {
           className={`flex items-center gap-2.5 px-4 py-3 rounded-full text-white font-bold text-xs shadow-2xl transition-all hover:scale-105 active:scale-95 group ${
             showAiPopup
               ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700 shadow-slate-900/50'
-              : 'bg-gradient-to-r from-teal-600 to-emerald-500 hover:brightness-110 shadow-teal-600/40 ring-4 ring-teal-500/20'
+              : 'bg-gradient-to-r from-teal-600 to-sky-500 hover:brightness-110 shadow-teal-600/40 ring-4 ring-teal-500/20'
           }`}
           title="คลิกเพื่อเปิด AI ผู้ช่วยซักถามอาการคนไข้"
         >

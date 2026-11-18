@@ -34,7 +34,7 @@ function HourChart({ rows, theme }: { rows: [string, number][]; theme: any }) {
         {rows.map(([hour, v]) => (
           <div key={hour} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
             <span className="text-[10px] font-bold">{v}</span>
-            <div className="w-full rounded-t-lg bg-gradient-to-t from-teal-600 to-emerald-400" style={{ height: `${(v / max) * 100}%` }} />
+            <div className="w-full rounded-t-lg bg-gradient-to-t from-teal-600 to-sky-400" style={{ height: `${(v / max) * 100}%` }} />
             <span className={`text-[10px] font-mono ${theme.subText}`}>{hour}</span>
           </div>
         ))}
