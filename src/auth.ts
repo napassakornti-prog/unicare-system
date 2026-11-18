@@ -69,6 +69,21 @@ export function getRoleLabel(type?: LoginRole): string {
 
 export const emailToId = (email: string) => email.split('@')[0].toLowerCase();
 
+// ตรวจว่า session นี้ล็อกอินผ่าน Google (OAuth) จริงหรือไม่ จาก claim `amr` ใน JWT ที่ Supabase ออกให้
+// (ไม่ได้มาจากค่าที่ผู้ใช้กรอก) ใช้ยืนยันความเป็นเจ้าของอีเมลสำหรับสิทธิ์เจ้าหน้าที่
+function isOAuthSession(session: any): boolean {
+  try {
+    const part = String(session?.access_token || '').split('.')[1];
+    if (part) {
+      const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+      if (Array.isArray(payload.amr)) {
+        return payload.amr.some((a: any) => (a?.method || a) === 'oauth');
+      }
+    }
+  } catch {}
+  return session?.user?.app_metadata?.provider === 'google';
+}
+
 // ฟังสถานะการล็อกอิน (รวมถึงตอนกลับมาจากหน้า Google) และตรวจโดเมนอีเมล + สิทธิ์ที่เลือกทุกครั้ง
 export function initAuth(onUser: (u: AuthUser | null) => void, onError: (msg: string) => void): () => void {
   const sb = getSupabase();
@@ -97,6 +112,14 @@ export function initAuth(onUser: (u: AuthUser | null) => void, onError: (msg: st
       return;
     }
 
+    // สิทธิ์เจ้าหน้าที่ต้องยืนยันตัวตนผ่าน Google เท่านั้น (กันการสมัครด้วยรหัสผ่านโดยใช้อีเมลเจ้าหน้าที่ที่ไม่ใช่ของตน)
+    if (isStaffEmail && chosenRole === 'admin' && !isOAuthSession(session)) {
+      await sb.auth.signOut();
+      onError('เจ้าหน้าที่ห้องพยาบาลต้องเข้าสู่ระบบด้วยปุ่ม Google เท่านั้น');
+      onUser(null);
+      return;
+    }
+
     // กำหนดประเภทผู้ใช้ตามที่เลือก หรือตรวจสอบอัตโนมัติหากไม่ได้ระบุไว้
     let finalType: LoginRole;
     if (chosenRole === 'admin' && isStaffEmail) {
@@ -104,7 +127,7 @@ export function initAuth(onUser: (u: AuthUser | null) => void, onError: (msg: st
     } else if (chosenRole === 'student' || chosenRole === 'personnel') {
       finalType = chosenRole;
     } else {
-      finalType = isStaffEmail ? 'admin' : /^\d/.test(email) ? 'student' : 'personnel';
+      finalType = isStaffEmail && isOAuthSession(session) ? 'admin' : /^\d/.test(email) ? 'student' : 'personnel';
     }
 
     const meta = session.user.user_metadata || {};
@@ -160,7 +183,12 @@ export async function signUpWithPassword(
 ): Promise<{ error: string | null; needsConfirm: boolean }> {
   const sb = getSupabase();
   if (!sb) return { error: 'ระบบยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ', needsConfirm: false };
-  setSelectedLoginRole(selectedRole);
+  // การสมัครสมาชิกรองรับเฉพาะนักศึกษา/บุคลากรทั่วไป — ไม่เปิดให้กำหนดสิทธิ์เจ้าหน้าที่เอง
+  const safeRole: LoginRole = selectedRole === 'personnel' ? 'personnel' : 'student';
+  if (isAdminEmail(email)) {
+    return { error: 'อีเมลนี้เป็นบัญชีเจ้าหน้าที่ ไม่สามารถสมัครสมาชิกได้ กรุณาเข้าสู่ระบบด้วยปุ่ม Google', needsConfirm: false };
+  }
+  setSelectedLoginRole(safeRole);
   const { data, error } = await sb.auth.signUp({
     email: email.trim().toLowerCase(),
     password,

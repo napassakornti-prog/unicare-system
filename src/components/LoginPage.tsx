@@ -32,10 +32,10 @@ const ROLE_OPTIONS: { id: LoginRole; label: string; desc: string; icon: any }[] 
 ];
 
 // ---------- ตัวเลือกประเภทผู้ใช้งาน (Dropdown บนเดสก์ท็อป / Bottom sheet บนมือถือ) ----------
-function RoleSelector({ value, onChange }: { value: LoginRole; onChange: (r: LoginRole) => void }) {
+function RoleSelector({ value, onChange, options = ROLE_OPTIONS }: { value: LoginRole; onChange: (r: LoginRole) => void; options?: typeof ROLE_OPTIONS }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const current = ROLE_OPTIONS.find(r => r.id === value) || ROLE_OPTIONS[0];
+  const current = options.find(r => r.id === value) || options[0];
   const CurIcon = current.icon;
 
   useEffect(() => {
@@ -49,7 +49,7 @@ function RoleSelector({ value, onChange }: { value: LoginRole; onChange: (r: Log
 
   const list = (
     <ul role="listbox" className="p-1.5 space-y-0.5">
-      {ROLE_OPTIONS.map(o => {
+      {options.map(o => {
         const Icon = o.icon;
         const active = o.id === value;
         return (
@@ -112,10 +112,10 @@ function RoleSelector({ value, onChange }: { value: LoginRole; onChange: (r: Log
 
 // ---------- ช่องกรอกข้อมูล ----------
 function Field({
-  label, icon: Icon, type = 'text', value, onChange, placeholder, autoComplete, error, right,
+  label, icon: Icon, type = 'text', value, onChange, placeholder, autoComplete, error, right, helper,
 }: {
   label: string; icon: any; type?: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; autoComplete?: string; error?: string; right?: React.ReactNode;
+  placeholder?: string; autoComplete?: string; error?: string; right?: React.ReactNode; helper?: string;
 }) {
   return (
     <label className="block">
@@ -132,7 +132,9 @@ function Field({
         />
         {right}
       </div>
-      {error && <span className="block mt-1 text-[11px] text-rose-600">{error}</span>}
+      {error
+        ? <span className="block mt-1 text-[11px] text-rose-600">{error}</span>
+        : helper && <span key={helper} className="block mt-1 text-[11px] text-slate-400 animate-fade-in">{helper}</span>}
     </label>
   );
 }
@@ -165,7 +167,15 @@ export default function LoginPage({
 
   const switchMode = (m: Mode) => {
     setMode(m); setFormError(''); setSuccess(''); setFieldErr({}); setPassword(''); setConfirm('');
+    // หน้าสมัครสมาชิกไม่มีสิทธิ์เจ้าหน้าที่ ให้กลับเป็นนักศึกษา
+    if (m === 'register' && role === 'admin') setRole('student');
   };
+
+  const emailHelper = role === 'admin'
+    ? 'เจ้าหน้าที่ห้องพยาบาลเข้าสู่ระบบด้วยปุ่ม Google ด้านล่าง'
+    : role === 'personnel'
+      ? 'กรุณาใช้อีเมลมหาวิทยาลัยของบุคลากร'
+      : 'กรุณาใช้อีเมลมหาวิทยาลัยของนักศึกษา';
 
   const eyeBtn = (
     <button type="button" onClick={() => setShowPw(s => !s)} className="p-1 text-slate-400 hover:text-slate-600" aria-label={showPw ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}>
@@ -191,6 +201,10 @@ export default function LoginPage({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(''); setSuccess('');
+    if (mode !== 'forgot' && role === 'admin') {
+      setFormError('เจ้าหน้าที่ห้องพยาบาลต้องเข้าสู่ระบบด้วยปุ่ม Google เท่านั้น');
+      return;
+    }
     if (!validate()) return;
     setBusy(true);
     try {
@@ -298,7 +312,13 @@ export default function LoginPage({
             <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
 
             <form onSubmit={submit} className="mt-5 space-y-3.5" noValidate>
-              {mode !== 'forgot' && <RoleSelector value={role} onChange={setRole} />}
+              {mode !== 'forgot' && (
+                <RoleSelector
+                  value={role}
+                  onChange={setRole}
+                  options={mode === 'register' ? ROLE_OPTIONS.filter(o => o.id !== 'admin') : ROLE_OPTIONS}
+                />
+              )}
 
               {mode === 'register' && (
                 <Field label="ชื่อ-นามสกุล" icon={User} value={fullName} onChange={setFullName} placeholder="เช่น สมชาย ใจดี" autoComplete="name" error={fieldErr.name} />
@@ -307,7 +327,8 @@ export default function LoginPage({
               <Field
                 label={mode === 'login' ? 'อีเมล' : `อีเมลมหาวิทยาลัย (@${ALLOWED_DOMAIN})`}
                 icon={Mail} type="email" value={email} onChange={setEmail}
-                placeholder={`รหัสนักศึกษา@${ALLOWED_DOMAIN}`} autoComplete="email" error={fieldErr.email}
+                placeholder={`เช่น somchai.ja@${ALLOWED_DOMAIN}`} autoComplete="email" error={fieldErr.email}
+                helper={mode === 'forgot' ? undefined : emailHelper}
               />
 
               {mode !== 'forgot' && (
