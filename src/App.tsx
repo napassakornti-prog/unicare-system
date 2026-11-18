@@ -78,9 +78,11 @@ export default function App() {
   const portalMode: 'landing' | 'staff' | 'student' = !session ? 'landing' : session.role === 'admin' ? 'staff' : 'student';
 
   useEffect(() => {
+    // รอให้ตรวจ session เสร็จก่อน ไม่เช่นนั้นจะเขียนทับ URL (/admin, #access_token) เป็น '/' ตั้งแต่ตอนเปิดหน้า
+    if (!authReady) return;
     const target = portalMode === 'staff' ? '/admin' : portalMode === 'student' ? '/portal' : '/';
     if (window.location.pathname !== target) window.history.replaceState({}, '', target);
-  }, [portalMode]);
+  }, [portalMode, authReady]);
 
   const handleGoogleLogin = async (role: LoginRole = 'student') => {
     setAuthError('');
@@ -985,6 +987,17 @@ export default function App() {
   // =========================================================================
   if (portalMode === 'landing') {
     const cfg = getSupabaseConfig();
+    // ระหว่างตรวจ session ที่ค้างอยู่ ให้แสดงหน้าโหลด แทนการแสดงหน้า Login ชั่วคราว
+    if (!authReady && cfg.url) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-900 via-teal-700 to-teal-400">
+          <div className="flex flex-col items-center gap-3 text-white">
+            <Activity size={36} className="animate-pulse" />
+            <p className="text-sm font-semibold">กำลังตรวจสอบการเข้าสู่ระบบ...</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <LoginPage
         darkMode={darkMode}
