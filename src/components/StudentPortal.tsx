@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { checkDrugAllergy, DRUG_FAMILY_OPTIONS } from '../ai';
 import { Req, REQ_STATUS } from '../requests';
-import { AuthUser } from '../auth';
+import { AuthUser, getRoleLabel } from '../auth';
 
 const SEVERITIES = ['รุนแรงมาก (Anaphylaxis Risk)', 'ปานกลาง (มีผื่นลมพิษ)', 'เล็กน้อย (คลื่นไส้ มึนหัว)'];
 
@@ -182,7 +182,9 @@ export default function StudentPortal({
               <p className="text-[10px] font-bold tracking-[0.2em] text-teal-100">UNICARE HEALTH CARD</p>
               <p className="text-[11px] text-teal-100 mt-0.5">มหาวิทยาลัยกาฬสินธุ์</p>
             </div>
-            <div className="w-11 h-8 rounded-md bg-gradient-to-br from-amber-200 to-amber-400 opacity-90"></div>
+            <span className="px-3 py-1 rounded-full bg-white/15 border border-white/25 text-[11px] font-bold">
+              สิทธิ์: {getRoleLabel(user.userType)}
+            </span>
           </div>
           <div className="relative mt-6 flex items-center gap-4">
             {user.avatar ? (

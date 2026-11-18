@@ -28,7 +28,7 @@ import Reports from './components/Reports';
 import StudentPortal from './components/StudentPortal';
 import LoginPage from './components/LoginPage';
 import RequestsAdmin from './components/RequestsAdmin';
-import { AuthUser, initAuth, signInWithGoogle, signOutUser, emailToId, getVisibleAdminEmails, getLocalAdminEmails, saveLocalAdminEmails, ALLOWED_DOMAIN } from './auth';
+import { AuthUser, LoginRole, initAuth, signInWithGoogle, signOutUser, emailToId, getVisibleAdminEmails, getLocalAdminEmails, saveLocalAdminEmails, ALLOWED_DOMAIN, isAdminEmail, setSelectedLoginRole, getRoleLabel } from './auth';
 import { Req, REQ_STATUS, useRequests, createRequest, updateRequest } from './requests';
 
 // เสียงเตือนเมื่อมีการเรียกฉุกเฉิน
@@ -82,11 +82,22 @@ export default function App() {
     if (window.location.pathname !== target) window.history.replaceState({}, '', target);
   }, [portalMode]);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (role: LoginRole = 'student') => {
     setAuthError('');
     setLoginLoading(true);
-    const err = await signInWithGoogle();
+    const err = await signInWithGoogle(role);
     if (err) { setAuthError(err); setLoginLoading(false); }
+  };
+
+  const handleSwitchRole = (newRole: LoginRole) => {
+    if (!session) return;
+    if (newRole === 'admin' && !isAdminEmail(session.email)) return;
+    setSelectedLoginRole(newRole);
+    setSession({
+      ...session,
+      userType: newRole,
+      role: newRole === 'admin' ? 'admin' : 'user',
+    });
   };
 
   const handleSignOut = async () => {
@@ -235,7 +246,7 @@ export default function App() {
 
   const handleCreateRequest = async (type: Req['type'], payload: any) => {
     if (!session) return;
-    await createRequest({ type, email: session.email, name: session.name, role: 'ผู้ใช้บริการ', payload });
+    await createRequest({ type, email: session.email, name: session.name, role: getRoleLabel(session.userType), payload });
     refreshRequests();
   };
 

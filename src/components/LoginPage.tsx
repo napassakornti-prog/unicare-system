@@ -1,6 +1,9 @@
-import React from 'react';
-import { Activity, AlertCircle, ShieldCheck, Moon, Sun, BedDouble, Pill, Siren, HeartPulse } from 'lucide-react';
-import { ALLOWED_DOMAIN } from '../auth';
+import React, { useState } from 'react';
+import {
+  Activity, AlertCircle, ShieldCheck, Moon, Sun, BedDouble, Pill, Siren, HeartPulse,
+  GraduationCap, Briefcase, Stethoscope, CheckCircle2,
+} from 'lucide-react';
+import { ALLOWED_DOMAIN, LoginRole, getSelectedLoginRole } from '../auth';
 
 const GoogleLogo = () => (
   <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
@@ -18,16 +21,45 @@ const FEATURES = [
   { icon: Siren, text: 'ปุ่มเรียกฉุกเฉิน แจ้งเจ้าหน้าที่ทันทีขณะพักที่เตียง' },
 ];
 
+const ROLE_OPTIONS: {
+  id: LoginRole;
+  label: string;
+  desc: string;
+  icon: any;
+}[] = [
+  {
+    id: 'student',
+    label: 'นักศึกษา',
+    desc: 'จองเตียง ขอยา และแจ้งประวัติแพ้ยาด้วยอีเมลนักศึกษา',
+    icon: GraduationCap,
+  },
+  {
+    id: 'personnel',
+    label: 'บุคลากรทั่วไป',
+    desc: 'สำหรับอาจารย์และบุคลากรสายสนับสนุนของมหาวิทยาลัย',
+    icon: Briefcase,
+  },
+  {
+    id: 'admin',
+    label: 'เจ้าหน้าที่ห้องพยาบาล',
+    desc: 'สำหรับพยาบาลและผู้ดูแลระบบห้องพยาบาลเท่านั้น',
+    icon: Stethoscope,
+  },
+];
+
 export default function LoginPage({
   darkMode, onToggleDark, onGoogle, error, loading, configured,
 }: {
   darkMode: boolean;
   onToggleDark: () => void;
-  onGoogle: () => void;
+  onGoogle: (role: LoginRole) => void;
   error: string;
   loading: boolean;
   configured: boolean;
 }) {
+  const [selectedRole, setSelectedRole] = useState<LoginRole>(() => getSelectedLoginRole() || 'student');
+  const currentRoleInfo = ROLE_OPTIONS.find(r => r.id === selectedRole) || ROLE_OPTIONS[0];
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-teal-900 via-teal-700 to-teal-400 relative overflow-hidden">
       <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/10 blur-2xl"></div>
@@ -77,25 +109,61 @@ export default function LoginPage({
           <p className="relative text-[11px] text-teal-200">Smart University Infirmary Management System</p>
         </div>
 
-        {/* ขวา: เข้าสู่ระบบ */}
-        <div className="md:col-span-2 p-8 sm:p-10 flex flex-col justify-center text-slate-800">
+        {/* ขวา: เข้าสู่ระบบพร้อมเลือกสิทธิ์ */}
+        <div className="md:col-span-2 p-7 sm:p-9 flex flex-col justify-center text-slate-800">
           <h2 className="text-2xl font-black text-teal-900">เข้าสู่ระบบ</h2>
-          <p className="text-xs text-slate-500 mt-1">ใช้บัญชี Google ของมหาวิทยาลัย (@{ALLOWED_DOMAIN}) เท่านั้น</p>
+          <p className="text-xs text-slate-500 mt-1">เลือกประเภทผู้ใช้งานและลงชื่อเข้าใช้ด้วยบัญชี @{ALLOWED_DOMAIN}</p>
+
+          {/* ตัวเลือกสิทธิ์การเข้าใช้งาน */}
+          <div className="mt-5 space-y-2.5">
+            <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">เลือกสิทธิ์การเข้าใช้งาน</p>
+            {ROLE_OPTIONS.map(option => {
+              const Icon = option.icon;
+              const active = selectedRole === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSelectedRole(option.id)}
+                  className={`w-full p-3 rounded-2xl border-2 text-left flex items-start gap-3 transition-all ${
+                    active
+                      ? 'border-teal-600 bg-teal-50/70 shadow-sm'
+                      : 'border-slate-200 hover:border-teal-300 bg-white'
+                  }`}
+                >
+                  <div className={`p-2 rounded-xl shrink-0 ${active ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                    <Icon size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={`text-xs font-black ${active ? 'text-teal-900' : 'text-slate-800'}`}>{option.label}</p>
+                      {active && <CheckCircle2 size={15} className="text-teal-600 shrink-0" />}
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{option.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
           {error && (
-            <div className="mt-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex gap-2">
+            <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex gap-2">
               <AlertCircle size={16} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           <button
-            onClick={onGoogle}
+            onClick={() => onGoogle(selectedRole)}
             disabled={loading || !configured}
-            className="mt-6 w-full py-3.5 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-teal-300 font-bold text-sm flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-5 w-full py-3.5 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-teal-700/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <GoogleLogo />
-            {loading ? 'กำลังตรวจสอบ...' : 'ลงชื่อเข้าใช้ด้วย Google'}
+            <span className="p-1 rounded-lg bg-white flex items-center justify-center shrink-0">
+              <GoogleLogo />
+            </span>
+            <span className="truncate">
+              {loading ? 'กำลังตรวจสอบ...' : `เข้าสู่ระบบในฐานะ${currentRoleInfo.label}`}
+            </span>
           </button>
 
           {!configured && (
@@ -104,9 +172,13 @@ export default function LoginPage({
             </p>
           )}
 
-          <div className="mt-6 p-3 rounded-xl bg-teal-50 border border-teal-100 text-[11px] text-teal-900 flex gap-2">
+          <div className="mt-4 p-3 rounded-xl bg-teal-50 border border-teal-100 text-[11px] text-teal-900 flex gap-2">
             <ShieldCheck size={16} className="shrink-0 mt-0.5 text-teal-600" />
-            <span>ข้อมูลสุขภาพของคุณได้รับการปกป้อง ระบบจะนำเข้าสู่หน้าที่เหมาะกับสิทธิ์ของคุณโดยอัตโนมัติ</span>
+            <span>
+              {selectedRole === 'admin'
+                ? 'เฉพาะอีเมลเจ้าหน้าที่ห้องพยาบาลที่ได้รับอนุญาตเท่านั้นที่สามารถเข้าใช้งานโหมดนี้ได้'
+                : `ใช้อีเมลมหาวิทยาลัย (@${ALLOWED_DOMAIN}) เพื่อเข้าใช้งานระบบในฐานะ${currentRoleInfo.label}`}
+            </span>
           </div>
         </div>
       </div>
