@@ -58,14 +58,14 @@ export default function RequestsAdmin({
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
-      <div className={`p-6 rounded-2xl border ${theme.card}`}>
-        <h3 className={`font-bold text-lg ${theme.heading}`}>คำขอจากนักศึกษา / อาจารย์ / บุคลากร</h3>
-        <p className={`text-xs mt-1 ${theme.subText}`}>พิจารณาอนุมัติการจองเตียง การขอยา ยืนยันประวัติแพ้ยา และตอบรับการเรียกฉุกเฉิน (อัปเดตอัตโนมัติทุก 5 วินาที)</p>
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-5">
+      <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card}`}>
+        <h3 className={`font-bold text-base sm:text-lg ${theme.heading}`}>คำขอออนไลน์จากนักศึกษา / อาจารย์ / บุคลากร</h3>
+        <p className={`text-xs mt-1 ${theme.subText}`}>พิจารณาอนุมัติการจองเตียง การขอยา ยืนยันประวัติแพ้ยา และตอบรับการเรียกฉุกเฉิน (อัปเดตอัตโนมัติ)</p>
         <div className="flex flex-wrap gap-2 mt-4">
           {FILTERS.map(f => (
             <button key={f.id} onClick={() => setFilter(f.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${filter === f.id ? 'bg-teal-600 text-white border-teal-600' : `${theme.cardInner} hover:border-teal-500/50`}`}>
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${filter === f.id ? 'bg-teal-600 text-white border-teal-600' : `${theme.cardInner} hover:border-teal-500/50`}`}>
               {f.label}
             </button>
           ))}
@@ -141,7 +141,7 @@ export default function RequestsAdmin({
                     <select
                       value={bedChoice[r.id] ?? (freeBeds.find(b => b.id === p.preferredBedId)?.id || freeBeds[0]?.id || '')}
                       onChange={e => setBedChoice({ ...bedChoice, [r.id]: e.target.value })}
-                      className={`px-3 py-2 rounded-xl border text-xs ${theme.inputBg}`}
+                      className={`min-h-[42px] px-3 py-2 rounded-xl border text-xs ${theme.inputBg}`}
                     >
                       {freeBeds.length === 0 && <option value="">ไม่มีเตียงว่าง</option>}
                       {freeBeds.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -149,30 +149,30 @@ export default function RequestsAdmin({
                     <button
                       disabled={freeBeds.length === 0}
                       onClick={() => onApproveBed(r, bedChoice[r.id] ?? (freeBeds.find(b => b.id === p.preferredBedId)?.id || freeBeds[0]?.id))}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50"
+                      className="min-h-[42px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50"
                     >อนุมัติ & จัดเตียง</button>
                   </>
                 )}
                 {r.type === 'bed' && r.status === REQ_STATUS.APPROVED && (
-                  <button onClick={() => onFinishBed(r)} className="px-4 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold hover:bg-slate-800">จำหน่าย / คืนเตียง</button>
+                  <button onClick={() => onFinishBed(r)} className="min-h-[42px] px-4 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold hover:bg-slate-800">จำหน่าย / คืนเตียง</button>
                 )}
                 {r.type === 'medicine' && pending && (
-                  <button onClick={() => onApproveMedicine(r)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700">อนุมัติ & ตัดสต็อก</button>
+                  <button onClick={() => onApproveMedicine(r)} className="min-h-[42px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700">อนุมัติ & ตัดสต็อก</button>
                 )}
                 {r.type === 'medicine' && r.status === REQ_STATUS.APPROVED && (
-                  <button onClick={() => onSetStatus(r, REQ_STATUS.DONE)} className="px-4 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold hover:bg-slate-800">ผู้ขอรับยาแล้ว</button>
+                  <button onClick={() => onSetStatus(r, REQ_STATUS.DONE)} className="min-h-[42px] px-4 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold hover:bg-slate-800">ผู้ขอรับยาแล้ว</button>
                 )}
                 {r.type === 'allergy' && pending && (
-                  <button onClick={() => onApproveAllergy(r)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700">ยืนยันข้อมูลแพ้ยา</button>
+                  <button onClick={() => onApproveAllergy(r)} className="min-h-[42px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700">ยืนยันข้อมูลแพ้ยา</button>
                 )}
                 {r.type === 'emergency' && pending && (
-                  <button onClick={() => onSetStatus(r, REQ_STATUS.ACK)} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700">รับทราบ กำลังไปดูแล</button>
+                  <button onClick={() => onSetStatus(r, REQ_STATUS.ACK)} className="min-h-[42px] px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700">รับทราบ กำลังไปดูแล</button>
                 )}
                 {r.type === 'emergency' && (pending || r.status === REQ_STATUS.ACK) && (
-                  <button onClick={() => onSetStatus(r, REQ_STATUS.DONE)} className="px-4 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold hover:bg-slate-800">ดูแลเสร็จสิ้น</button>
+                  <button onClick={() => onSetStatus(r, REQ_STATUS.DONE)} className="min-h-[42px] px-4 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold hover:bg-slate-800">ดูแลเสร็จสิ้น</button>
                 )}
                 {pending && r.type !== 'emergency' && (
-                  <button onClick={() => reject(r)} className="px-4 py-2 rounded-xl border border-rose-500/40 text-rose-600 text-xs font-bold hover:bg-rose-500/10">ปฏิเสธ</button>
+                  <button onClick={() => reject(r)} className="min-h-[42px] px-4 py-2 rounded-xl border border-rose-500/40 text-rose-600 text-xs font-bold hover:bg-rose-500/10">ปฏิเสธ</button>
                 )}
               </div>
             </div>

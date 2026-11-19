@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, ClipboardPlus, Pill, Upload, Users, BarChart3, Bot, Settings, Activity,
   AlertTriangle, Search, CheckCircle2, AlertCircle, X, Plus, Bed, ShieldCheck,
   FileSpreadsheet as SheetIcon, Sun, Moon, Sparkles, ShieldAlert, RefreshCw, ChevronRight,
   GraduationCap, MessageCircleQuestion, LogOut, Trash2, Clock, RotateCcw, Database,
   UserCheck, Briefcase, Award, HeartHandshake, Check, Bell, Send, Cloud, Copy,
-  ArrowRight, ArrowLeft, Stethoscope, User, Lock, ExternalLink, Inbox, Siren
+  ArrowRight, ArrowLeft, Stethoscope, User, Lock, ExternalLink, Inbox, Siren,
+  Menu, ChevronLeft, Eye
 } from 'lucide-react';
 import { 
   INITIAL_STUDENTS, INITIAL_MEDICINES, INITIAL_VISITS, STANDARD_SYMPTOMS, 
@@ -58,6 +59,21 @@ const DB_KEYS = {
 export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('unicare_sidebar_collapsed');
+      if (saved !== null) return saved === '1';
+    } catch {}
+    return typeof window !== 'undefined' && window.innerWidth < 1024;
+  });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    try {
+      localStorage.setItem('unicare_sidebar_collapsed', sidebarCollapsed ? '1' : '0');
+    } catch {}
+  }, [sidebarCollapsed]);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [detailStudent, setDetailStudent] = useState<any | null>(null);
 
   // ---------- การยืนยันตัวตน (Google ด้วยอีเมลมหาวิทยาลัยเท่านั้น) ----------
   const [session, setSession] = useState<AuthUser | null>(null);
@@ -955,18 +971,32 @@ export default function App() {
   const lowStockMeds = medicines.filter(m => m.stock <= m.min);
   const pendingAllergyCount = students.reduce((n, s) => n + (s.allergyDetails || []).filter((d: any) => !d.verified).length, 0);
 
-  // เมนูนำทางด้านซ้าย
-  const navItems = [
-    { id: 'dashboard', label: 'แดชบอร์ด', icon: LayoutDashboard, category: 'หลัก' },
-    { id: 'visit-record', label: 'บันทึกเข้าใช้บริการ', icon: ClipboardPlus, category: 'หลัก' },
-    { id: 'requests', label: 'คำขอจากผู้ใช้', icon: Inbox, category: 'หลัก', badge: pendingRequestCount },
-    { id: 'inventory', label: 'สต็อกยา & เวชภัณฑ์', icon: Pill, category: 'หลัก', badge: lowStockMeds.length },
-    { id: 'data-import', label: 'นำเข้าข้อมูล', icon: Upload, category: 'ข้อมูล' },
-    { id: 'students', label: 'ทะเบียนผู้ป่วย & แพ้ยา', icon: Users, category: 'ข้อมูล', badge: pendingAllergyCount },
-    { id: 'reports', label: 'รายงาน & สถิติ', icon: BarChart3, category: 'ข้อมูล' },
-    { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, category: 'ระบบ', highlight: true },
-    { id: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, category: 'ระบบ' },
+  // เมนูนำทางด้านซ้าย แบ่งเป็น 3 หมวดหมู่ตามมาตรฐาน HIS
+  const navGroups = [
+    {
+      title: 'งานบริการผู้ป่วย',
+      items: [
+        { id: 'dashboard', label: 'แดชบอร์ด', icon: LayoutDashboard },
+        { id: 'requests', label: 'คำขอออนไลน์', icon: Inbox, badge: pendingRequestCount },
+        { id: 'visit-record', label: 'บันทึกการรักษา', icon: ClipboardPlus },
+        { id: 'students', label: 'ทะเบียนผู้ป่วย & แพ้ยา', icon: Users, badge: pendingAllergyCount },
+      ],
+    },
+    {
+      title: 'คลังและรายงาน',
+      items: [
+        { id: 'inventory', label: 'สต็อกยา & เวชภัณฑ์', icon: Pill, badge: lowStockMeds.length },
+        { id: 'reports', label: 'รายงาน & สถิติ', icon: BarChart3 },
+      ],
+    },
+    {
+      title: 'ทั่วไป',
+      items: [
+        { id: 'settings', label: 'ตั้งค่าระบบ', icon: Settings },
+      ],
+    },
   ];
+  const navItems = navGroups.flatMap(g => g.items);
 
   const theme = {
     bg: darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800',
@@ -1077,71 +1107,204 @@ export default function App() {
   // VIEW C: NURSING STAFF & ADMIN DASHBOARD (มุมมองเจ้าหน้าที่ห้องพยาบาล)
   // =========================================================================
   return (
-    <div className={`flex h-screen font-sans overflow-hidden transition-colors duration-300 ${theme.bg}`}>
+    <div className={`flex h-[100dvh] font-sans overflow-hidden transition-colors duration-300 ${theme.bg}`}>
 
-      {/* SIDEBAR NAVIGATION */}
-      <aside className={`w-64 border-r flex flex-col shrink-0 z-20 backdrop-blur-md transition-colors duration-300 ${theme.sidebar}`}>
-        <div className={`h-20 flex items-center px-6 border-b justify-between ${theme.sidebarHeader}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 flex items-center justify-center text-white shadow-lg shadow-teal-500/20 font-bold">
+      {/* MOBILE SLIDE-OUT DRAWER (< 1024px) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <aside className={`relative w-72 max-w-[82vw] h-full border-r flex flex-col z-10 shadow-2xl ${theme.sidebar}`}>
+            <div className={`h-16 flex items-center px-5 border-b justify-between ${theme.sidebarHeader}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 flex items-center justify-center text-white shadow-md shrink-0">
+                  <Activity size={20} className="stroke-[2.5]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-base font-bold tracking-tight ${theme.heading}`}>UniCare</span>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/30">HIS</span>
+                  </div>
+                  <p className={`text-[10px] truncate ${theme.subText}`}>ระบบห้องพยาบาล ม.กาฬสินธุ์</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="ปิดเมนู"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto custom-scrollbar">
+              {navGroups.map(group => (
+                <div key={group.title} className="space-y-1">
+                  <p className={`px-3 text-[10px] font-bold uppercase tracking-wider ${theme.subText}`}>{group.title}</p>
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
+                        className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                          isActive
+                            ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20'
+                            : darkMode
+                              ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon size={18} className={isActive ? 'text-white' : ''} />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isActive ? 'bg-white text-teal-700' : 'bg-rose-500 text-white'
+                          }`}>
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
+              {session && (
+                <div className="flex items-center gap-2.5">
+                  {session.avatar ? (
+                    <img src={session.avatar} alt="" className="w-9 h-9 rounded-full shrink-0" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{session.name.charAt(0)}</div>
+                  )}
+                  <div className="min-w-0 leading-tight">
+                    <p className={`text-xs font-bold truncate ${theme.heading}`}>{session.name}</p>
+                    <p className={`text-[10px] truncate ${theme.subText}`}>{session.email}</p>
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => { setMobileMenuOpen(false); handleSignOut(); }}
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/5 text-rose-600 dark:text-rose-400 text-xs font-bold"
+              >
+                <LogOut size={15} /> ออกจากระบบ
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* DESKTOP COLLAPSIBLE SIDEBAR (>= 1024px) */}
+      <aside className={`hidden md:flex ${sidebarCollapsed ? 'w-20' : 'w-64'} border-r flex-col shrink-0 z-20 backdrop-blur-md transition-all duration-300 ${theme.sidebar}`}>
+        <div className={`h-20 flex items-center ${sidebarCollapsed ? 'px-3 justify-center' : 'px-5 justify-between'} border-b ${theme.sidebarHeader}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 flex items-center justify-center text-white shadow-lg shadow-teal-500/20 font-bold shrink-0">
               <Activity size={22} className="stroke-[2.5]" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-lg font-bold tracking-tight ${theme.heading}`}>UniCare</span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/30">Admin</span>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-lg font-bold tracking-tight ${theme.heading}`}>UniCare</span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-600 dark:text-teal-300 border border-teal-500/30">HIS</span>
+                </div>
+                <p className={`text-[11px] truncate ${theme.subText}`}>ระบบห้องพยาบาล ม.กาฬสินธุ์</p>
               </div>
-              <p className={`text-[11px] ${theme.subText}`}>ระบบห้องพยาบาล ม.กาฬสินธุ์</p>
-            </div>
+            )}
           </div>
+          {!sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(true)}
+              className={`p-2 rounded-xl border text-xs transition-all ${darkMode ? 'border-slate-800 text-slate-400 hover:bg-slate-800' : 'border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+              title="พับแถบเมนูด้านซ้าย"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
         </div>
 
-        {/* Menu Navigation */}
-        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  isActive 
-                    ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' 
-                    : darkMode 
-                      ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon size={18} className={isActive ? 'text-white' : item.highlight ? 'text-teal-500' : ''} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    isActive ? 'bg-white text-teal-700' : 'bg-rose-500 text-white'
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {sidebarCollapsed && (
+          <div className="px-3 pt-3 flex justify-center">
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className={`w-11 h-10 rounded-xl border flex items-center justify-center transition-all ${darkMode ? 'border-slate-800 text-slate-400 hover:bg-slate-800' : 'border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+              title="กางแถบเมนูด้านซ้าย"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Menu Navigation (3 หมวดหมู่) */}
+        <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto custom-scrollbar">
+          {navGroups.map((group, gIdx) => (
+            <div key={group.title} className="space-y-1">
+              {sidebarCollapsed ? (
+                gIdx > 0 && <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
+              ) : (
+                <p className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-wider ${theme.subText}`}>{group.title}</p>
+              )}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    title={sidebarCollapsed ? `${item.label}${item.badge ? ` (${item.badge})` : ''}` : undefined}
+                    className={`relative w-full flex items-center ${sidebarCollapsed ? 'justify-center px-2 py-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all ${
+                      isActive 
+                        ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' 
+                        : darkMode 
+                          ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' 
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : ''}`} />
+                      {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                    </div>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      sidebarCollapsed ? (
+                        <span className="absolute top-1.5 right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
+                          {item.badge > 9 ? '9+' : item.badge}
+                        </span>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                          isActive ? 'bg-white text-teal-700' : 'bg-rose-500 text-white'
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+        <div className="p-3.5 border-t border-slate-200 dark:border-slate-800">
           {session && (
-            <div className="flex items-center gap-2.5">
+            <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-2.5'}`} title={sidebarCollapsed ? `${session.name} (${session.email})` : undefined}>
               {session.avatar ? (
-                <img src={session.avatar} alt="" className="w-9 h-9 rounded-full" referrerPolicy="no-referrer" />
+                <img src={session.avatar} alt="" className="w-9 h-9 rounded-full shrink-0" referrerPolicy="no-referrer" />
               ) : (
-                <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-sm font-bold">{session.name.charAt(0)}</div>
+                <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{session.name.charAt(0)}</div>
               )}
-              <div className="min-w-0 leading-tight">
-                <p className={`text-xs font-bold truncate ${theme.heading}`}>{session.name}</p>
-                <p className={`text-[10px] truncate ${theme.subText}`}>{session.email}</p>
-              </div>
+              {!sidebarCollapsed && (
+                <div className="min-w-0 leading-tight">
+                  <p className={`text-xs font-bold truncate ${theme.heading}`}>{session.name}</p>
+                  <p className={`text-[10px] truncate ${theme.subText}`}>{session.email}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1151,32 +1314,50 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         
         {/* HEADER BAR */}
-        <header className={`h-20 border-b flex items-center justify-between px-8 z-10 backdrop-blur-md transition-colors duration-300 ${theme.header}`}>
-          <div className="flex items-center gap-4">
-            <h2 className={`font-black text-xl tracking-tight capitalize ${theme.heading}`}>
-              {navItems.find(n => n.id === activeTab)?.label || 'ห้องพยาบาล'}
-            </h2>
+        <header className={`h-16 lg:h-20 border-b flex items-center justify-between px-3 sm:px-6 lg:px-8 z-10 backdrop-blur-md transition-colors duration-300 gap-2 ${theme.header}`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className={`md:hidden w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all ${
+                darkMode ? 'bg-slate-900 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
+              }`}
+              aria-label="เปิดเมนูนำทาง"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="min-w-0">
+              <h2 className={`font-black text-base sm:text-xl tracking-tight truncate ${theme.heading}`}>
+                {navItems.find(n => n.id === activeTab)?.label || 'ห้องพยาบาล'}
+              </h2>
+              {session && (
+                <p className={`md:hidden text-[10px] truncate ${theme.subText}`}>
+                  เจ้าหน้าที่: {session.name}
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* ปุ่มดูสถานะเตียงว่าง */}
             <button
               onClick={() => setBedManagementModal(true)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all ${
+              className={`min-h-[42px] flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all ${
                 availableBedsCount > 0 
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20' 
                   : 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20'
               }`}
+              title="จัดการเตียงพักฟื้น"
             >
-              <Bed size={16} />
-              <span>เตียงว่าง: <strong className="font-bold">{availableBedsCount}/{beds.length}</strong></span>
+              <Bed size={16} className="shrink-0" />
+              <span className="hidden sm:inline">เตียงว่าง:</span>
+              <strong className="font-bold">{availableBedsCount}/{beds.length}</strong>
             </button>
 
             {/* ไอคอนแจ้งเตือน (Notification Bell) */}
             <div className="relative">
               <button
                 onClick={() => { setShowNotifPanel(!showNotifPanel); if (!showNotifPanel) markAllNotifsRead(); }}
-                className={`relative p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                className={`relative w-11 h-11 rounded-xl border flex items-center justify-center text-xs font-semibold transition-all ${
                   darkMode 
                     ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
@@ -1185,7 +1366,7 @@ export default function App() {
               >
                 <Bell size={16} />
                 {unreadNotifCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-rose-500 text-white text-[10px] font-black border-2 border-white dark:border-slate-900 animate-bounce">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-rose-500 text-white text-[10px] font-black border-2 border-white dark:border-slate-900 animate-bounce">
                     {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                   </span>
                 )}
@@ -1195,14 +1376,14 @@ export default function App() {
               {showNotifPanel && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setShowNotifPanel(false)} />
-                  <div className={`absolute right-0 top-12 z-40 w-80 max-h-96 rounded-2xl border shadow-2xl overflow-hidden ${theme.modalBg}`}>
+                  <div className={`fixed sm:absolute right-3 sm:right-0 top-16 sm:top-12 z-40 w-[calc(100vw-1.5rem)] sm:w-80 max-h-96 rounded-2xl border shadow-2xl overflow-hidden ${theme.modalBg}`}>
                     <div className={`sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-                      <span className={`text-xs font-bold ${theme.heading}`}>🔔 แจ้งเตือน ({notifications.length})</span>
-                      <div className="flex gap-2">
+                      <span className={`text-xs font-bold ${theme.heading}`}>แจ้งเตือน {notifications.length > 0 ? `(${notifications.length})` : ''}</span>
+                      <div className="flex gap-2 items-center">
                         {notifications.length > 0 && (
                           <button onClick={clearNotifications} className="text-[10px] text-rose-500 hover:underline font-semibold">ล้างทั้งหมด</button>
                         )}
-                        <button onClick={() => setShowNotifPanel(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                        <button onClick={() => setShowNotifPanel(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={14} /></button>
                       </div>
                     </div>
                     <div className="overflow-y-auto max-h-72 custom-scrollbar">
@@ -1240,7 +1421,7 @@ export default function App() {
             {/* Dark / Light Mode */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className={`p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+              className={`w-11 h-11 rounded-xl border flex items-center justify-center text-xs font-semibold transition-all ${
                 darkMode 
                   ? 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800' 
                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
@@ -1250,10 +1431,10 @@ export default function App() {
               {darkMode ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-indigo-600" />}
             </button>
 
-            {/* ปุ่มกลับหน้าเลือกสิทธิ์ (Landing) */}
+            {/* ปุ่มออกจากระบบ */}
             <button
               onClick={handleSignOut}
-              className={`p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+              className={`w-11 h-11 rounded-xl border flex items-center justify-center text-xs font-semibold transition-all ${
                 darkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
               } hover:text-rose-500`}
               title="ออกจากระบบ"
@@ -1261,229 +1442,261 @@ export default function App() {
               <LogOut size={16} />
             </button>
           </div>
-        </header>        {pendingEmergencies.length > 0 && (
-          <div className="px-8 py-3 bg-rose-600 text-white flex items-center justify-between gap-3 animate-pulse">
-            <div className="flex items-center gap-2 text-sm font-black">
-              <Siren size={20} /> เรียกฉุกเฉิน {pendingEmergencies.length} รายการ: {pendingEmergencies.map(e => e.name).join(', ')}
+        </header>
+
+        {pendingEmergencies.length > 0 && (
+          <div className="px-4 sm:px-8 py-2.5 bg-rose-600 text-white flex flex-wrap items-center justify-between gap-2 animate-pulse">
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-black">
+              <Siren size={18} className="shrink-0" />
+              <span>เรียกฉุกเฉิน {pendingEmergencies.length} รายการ: {pendingEmergencies.map(e => e.name).join(', ')}</span>
             </div>
-            <button onClick={() => setActiveTab('requests')} className="px-4 py-1.5 rounded-xl bg-white text-rose-600 text-xs font-bold">ดูรายละเอียด</button>
+            <button onClick={() => setActiveTab('requests')} className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-white text-rose-600 text-xs font-bold">ดูรายละเอียด</button>
           </div>
         )}
 
         {/* MAIN BODY VIEWS */}
-        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 pb-24 custom-scrollbar">
           
           {/* VIEW 1: DASHBOARD */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-8 max-w-7xl mx-auto">
-              {/* Banner */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-teal-900 to-sky-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-white/10 border border-white/20 shrink-0">
-                    <ShieldCheck size={26} className="text-teal-300" />
+            <div className="space-y-5 sm:space-y-6 max-w-7xl mx-auto">
+              {/* Compact Banner */}
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-teal-900 to-sky-900 text-white flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 shadow-lg">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/20 shrink-0">
+                    <ShieldCheck size={20} className="text-teal-300" />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-sm">UniCare Intelligent Nursing System — มหาวิทยาลัยกาฬสินธุ์</h4>
-                    <p className="text-xs text-teal-200 mt-0.5">
-                      ระบบบันทึกข้อมูลแบบเรียลไทม์ • ตรวจสอบการแพ้ยาและแพ้ข้ามกลุ่มอัตโนมัติ • ปลอดภัยตามมาตรฐาน PDPA
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs sm:text-sm truncate">UniCare Intelligent Nursing System — ม.กาฬสินธุ์</h4>
+                    <p className="text-[11px] text-teal-200 mt-0.5 line-clamp-1">
+                      บันทึกข้อมูลเรียลไทม์ • ตรวจการแพ้ยาและแพ้ข้ามกลุ่มอัตโนมัติ • มาตรฐาน PDPA
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => { resetVisitForm(); setActiveTab('visit-record'); }} 
-                    className="px-4 py-2 rounded-xl bg-white text-teal-900 font-bold text-xs hover:bg-teal-50 transition-all flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Plus size={14} /> เพิ่มข้อมูลการรักษา
-                  </button>
-                </div>
+                <button 
+                  onClick={() => { resetVisitForm(); setActiveTab('visit-record'); }} 
+                  className="min-h-[42px] px-4 py-2 rounded-xl bg-white text-teal-900 font-bold text-xs hover:bg-teal-50 transition-all flex items-center justify-center gap-1.5 shadow-sm shrink-0"
+                >
+                  <Plus size={15} /> บันทึกการรักษา
+                </button>
               </div>
 
               {/* Metrics Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className={`p-5 rounded-2xl transition-all ${theme.card}`}>
-                  <div className="flex justify-between items-start">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+                <div className={`p-4 sm:p-5 rounded-2xl transition-all ${theme.card}`}>
+                  <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>ผู้รับบริการวันนี้</p>
-                      <h3 className={`text-3xl font-black mt-2 tracking-tight ${theme.heading}`}>{visits.length} <span className={`text-sm font-normal ${theme.subText}`}>ครั้ง</span></h3>
+                      <p className={`text-[11px] sm:text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>ผู้รับบริการวันนี้</p>
+                      <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 tracking-tight ${theme.heading}`}>{visits.length} <span className={`text-xs sm:text-sm font-normal ${theme.subText}`}>ครั้ง</span></h3>
                     </div>
-                    <div className="p-3 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
-                      <Users size={22} />
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0">
+                      <Users size={20} />
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                  <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-rose-600 dark:text-rose-400 font-medium">
                     <span>ฉุกเฉิน {visits.filter(v => v.triage === 'ฉุกเฉิน').length} • ด่วน {visits.filter(v => v.triage === 'ด่วน').length} ราย</span>
                   </div>
                 </div>
 
-                <div className={`p-5 rounded-2xl transition-all ${theme.card}`}>
-                  <div className="flex justify-between items-start">
+                <div className={`p-4 sm:p-5 rounded-2xl transition-all ${theme.card}`}>
+                  <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>เตียงพักฟื้นว่าง</p>
-                      <h3 className={`text-3xl font-black mt-2 tracking-tight ${theme.heading}`}>{availableBedsCount} <span className={`text-sm font-normal ${theme.subText}`}>/ {beds.length} เตียง</span></h3>
+                      <p className={`text-[11px] sm:text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>เตียงพักฟื้นว่าง</p>
+                      <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 tracking-tight ${theme.heading}`}>{availableBedsCount} <span className={`text-xs sm:text-sm font-normal ${theme.subText}`}>/ {beds.length} เตียง</span></h3>
                     </div>
-                    <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                      <Bed size={22} />
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                      <Bed size={20} />
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                  <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-teal-600 dark:text-teal-400 font-medium">
                     <span>{beds.filter(b => b.status === 'occupied').length} เตียงกำลังใช้งานอยู่</span>
                   </div>
                 </div>
 
-                <div className={`p-5 rounded-2xl transition-all ${theme.card}`}>
-                  <div className="flex justify-between items-start">
+                <div className={`p-4 sm:p-5 rounded-2xl transition-all ${theme.card}`}>
+                  <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>ยาใกล้หมดสต็อก</p>
-                      <h3 className={`text-3xl font-black mt-2 tracking-tight ${theme.heading}`}>{lowStockMeds.length} <span className={`text-sm font-normal ${theme.subText}`}>รายการ</span></h3>
+                      <p className={`text-[11px] sm:text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>ยาใกล้หมดสต็อก</p>
+                      <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 tracking-tight ${theme.heading}`}>{lowStockMeds.length} <span className={`text-xs sm:text-sm font-normal ${theme.subText}`}>รายการ</span></h3>
                     </div>
-                    <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                      <AlertTriangle size={22} />
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                      <AlertTriangle size={20} />
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                  <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-amber-600 dark:text-amber-400 font-medium">
                     <span className="truncate">{lowStockMeds.length ? `ต้องสั่งซื้อ: ${lowStockMeds.map(m => m.name.split(' ')[0]).join(', ')}` : 'สต็อกทุกรายการปกติ'}</span>
                   </div>
                 </div>
 
-                <div className={`p-5 rounded-2xl transition-all ${theme.card}`}>
-                  <div className="flex justify-between items-start">
+                <div className={`p-4 sm:p-5 rounded-2xl transition-all ${theme.card}`}>
+                  <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>ผู้มีประวัติแพ้ยา</p>
-                      <h3 className={`text-3xl font-black mt-2 tracking-tight ${theme.heading}`}>
-                        {students.filter(s => (s.allergies || []).length > 0).length} <span className={`text-sm font-normal ${theme.subText}`}>คน</span>
+                      <p className={`text-[11px] sm:text-xs font-semibold uppercase tracking-wider ${theme.subText}`}>ผู้มีประวัติแพ้ยา</p>
+                      <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 tracking-tight ${theme.heading}`}>
+                        {students.filter(s => (s.allergies || []).length > 0).length} <span className={`text-xs sm:text-sm font-normal ${theme.subText}`}>คน</span>
                       </h3>
                     </div>
-                    <div className="p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                      <ShieldAlert size={22} />
+                    <div className="p-2.5 sm:p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 shrink-0">
+                      <ShieldAlert size={20} />
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
-                    <span>เฝ้าระวังความปลอดภัยด้านยาในระบบ</span>
+                  <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-rose-600 dark:text-rose-400 font-medium">
+                    <span>เฝ้าระวังความปลอดภัยด้านยา</span>
                   </div>
                 </div>
               </div>
 
               {/* Live Bed Board */}
-              <div className={`rounded-2xl border p-6 ${theme.card}`}>
-                <div className="flex justify-between items-center mb-4">
+              <div className={`rounded-2xl border p-4 sm:p-6 ${theme.card}`}>
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
                   <div>
-                    <h3 className={`font-bold text-base ${theme.heading}`}>ผังเตียงพักฟื้น (เรียลไทม์)</h3>
-                    <p className={`text-xs mt-0.5 ${theme.subText}`}>ว่าง {availableBedsCount} จาก {beds.length} เตียง — จัดสรรเตียงได้ในหน้าบันทึกเข้าใช้บริการ</p>
+                    <h3 className={`font-bold text-sm sm:text-base ${theme.heading}`}>ผังเตียงพักฟื้น (เรียลไทม์)</h3>
+                    <p className={`text-xs mt-0.5 ${theme.subText}`}>ว่าง {availableBedsCount} จาก {beds.length} เตียง — จัดสรรเตียงได้ในหน้าบันทึกการรักษา</p>
                   </div>
-                  <button onClick={() => setBedManagementModal(true)} className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1">
+                  <button onClick={() => setBedManagementModal(true)} className="min-h-[38px] px-3 py-1.5 rounded-xl bg-teal-500/10 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-teal-500/20 flex items-center gap-1">
                     จัดการเตียง <ChevronRight size={14} />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
                   {beds.map(b => (
                     <div key={b.id} className={`p-3 rounded-xl border text-xs transition-all ${b.status === 'occupied' ? 'bg-rose-500/5 border-rose-500/30' : 'bg-emerald-500/5 border-emerald-500/30'}`}>
-                      <div className="flex items-center justify-between">
-                        <Bed size={16} className={b.status === 'occupied' ? 'text-rose-500' : 'text-emerald-500'} />
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${b.status === 'occupied' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Bed size={16} className={`shrink-0 ${b.status === 'occupied' ? 'text-rose-500' : 'text-emerald-500'}`} />
+                          <span className={`font-bold truncate ${theme.heading}`}>{b.name}</span>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${b.status === 'occupied' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'}`}>
                           {b.status === 'occupied' ? 'ไม่ว่าง' : 'ว่าง'}
                         </span>
                       </div>
-                      <p className={`font-semibold mt-1.5 truncate ${theme.heading}`}>{b.name}</p>
                       {b.status === 'occupied' ? (
-                        <div className="mt-1 text-[11px] space-y-0.5">
+                        <div className="mt-2 pt-2 border-t border-rose-500/15 text-[11px] space-y-0.5">
                           <p className="font-bold text-rose-600 dark:text-rose-400 truncate">{b.studentName}</p>
-                          <p className={`truncate text-[10px] ${theme.subText}`}>{b.symptom}</p>
+                          <p className={`truncate text-[10px] ${theme.subText}`}>อาการ: {b.symptom || '-'}</p>
                         </div>
                       ) : (
-                        <p className={`mt-1 text-[10px] ${theme.subText}`}>พร้อมรับผู้ป่วย</p>
+                        <p className={`mt-2 text-[10px] ${theme.subText}`}>พร้อมรับผู้ป่วยพักฟื้น</p>
                       )}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Recent Visits Table */}
-              <div className={`rounded-2xl border p-6 ${theme.card}`}>
-                <div className="flex justify-between items-center mb-6">
+              {/* Recent Visits (Table on Desktop, Cards on Mobile) */}
+              <div className={`rounded-2xl border p-4 sm:p-6 ${theme.card}`}>
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-4 sm:mb-5">
                   <div>
-                    <h3 className={`font-bold text-base ${theme.heading}`}>รายการผู้รับบริการล่าสุด</h3>
+                    <h3 className={`font-bold text-sm sm:text-base ${theme.heading}`}>รายการผู้รับบริการล่าสุด</h3>
                     <p className={`text-xs mt-0.5 ${theme.subText}`}>ข้อมูลบันทึกจริงจากฐานข้อมูลห้องพยาบาล</p>
                   </div>
-                  <button onClick={() => setActiveTab('visit-record')} className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1">
+                  <button onClick={() => setActiveTab('visit-record')} className="min-h-[38px] px-3 py-1.5 rounded-xl bg-teal-500/10 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-teal-500/20 flex items-center gap-1">
                     ไปที่บันทึกข้อมูล <ChevronRight size={14} />
                   </button>
                 </div>
 
                 {visits.length === 0 ? (
-                  <div className="py-12 text-center space-y-2">
-                    <p className={`text-sm font-semibold ${theme.heading}`}>ยังไม่มีประวัติการเข้ารับบริการในระบบ (ข้อมูลเป็น 0)</p>
-                    <p className={`text-xs ${theme.subText}`}>ไปที่หน้า "บันทึกเข้าใช้บริการ" เพื่อเริ่มลงทะเบียนและบันทึกข้อมูลการรักษา</p>
+                  <div className="py-10 text-center space-y-2">
+                    <p className={`text-sm font-semibold ${theme.heading}`}>ยังไม่มีประวัติการเข้ารับบริการในระบบ</p>
+                    <p className={`text-xs ${theme.subText}`}>ไปที่หน้า "บันทึกการรักษา" เพื่อเริ่มลงทะเบียนและบันทึกข้อมูลการรักษา</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className={`border-b ${theme.tableHeader}`}>
-                          <th className="py-3 px-4 font-semibold">รหัส</th>
-                          <th className="py-3 px-4 font-semibold">เวลา</th>
-                          <th className="py-3 px-4 font-semibold">ประเภท</th>
-                          <th className="py-3 px-4 font-semibold">ชื่อ-นามสกุล</th>
-                          <th className="py-3 px-4 font-semibold">คณะ / สาขาวิชา</th>
-                          <th className="py-3 px-4 font-semibold">อาการสำคัญ</th>
-                          <th className="py-3 px-4 font-semibold">ระดับความเร่งด่วน</th>
-                          <th className="py-3 px-4 font-semibold">สถานะ</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                        {visits.slice(0, 5).map((v) => (
-                          <tr key={v.id} className="hover:bg-slate-500/5">
-                            <td className="py-3 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">{v.id}</td>
-                            <td className="py-3 px-4 font-mono">{v.time}</td>
-                            <td className="py-3 px-4">
-                              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-200 dark:bg-slate-800">
-                                {v.patientRole || 'นักศึกษา'}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 font-bold">{v.studentName}</td>
-                            <td className="py-3 px-4 text-slate-500">{v.faculty} {v.department ? `• ${v.department}` : ''}</td>
-                            <td className="py-3 px-4 max-w-xs truncate">{v.symptom}</td>
-                            <td className="py-3 px-4">
-                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                                v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
-                                v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                                'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                              }`}>
-                                {v.triage}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 font-medium">{v.status}</td>
+                  <>
+                    {/* Mobile Visit Cards (< 768px) */}
+                    <div className="md:hidden space-y-2.5">
+                      {visits.slice(0, 5).map((v) => (
+                        <div key={v.id} className={`p-3.5 rounded-xl border text-xs space-y-2 ${theme.cardInner}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={`font-bold text-sm truncate ${theme.heading}`}>{v.studentName}</p>
+                              <p className={`text-[11px] font-mono ${theme.subText}`}>{v.id} • {v.time} • {v.patientRole || 'นักศึกษา'}</p>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                              v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
+                              v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                              'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                            }`}>
+                              {v.triage}
+                            </span>
+                          </div>
+                          <p className={`text-[11px] ${theme.subText}`}>{v.faculty}{v.department ? ` • ${v.department}` : ''}</p>
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200 dark:border-slate-800">
+                            <span className="font-medium truncate">อาการ: <strong>{v.symptom}</strong></span>
+                            <span className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold">{v.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop Table (>= 768px) */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className={`border-b ${theme.tableHeader}`}>
+                            <th className="py-3 px-4 font-semibold">รหัส</th>
+                            <th className="py-3 px-4 font-semibold">เวลา</th>
+                            <th className="py-3 px-4 font-semibold">ประเภท</th>
+                            <th className="py-3 px-4 font-semibold">ชื่อ-นามสกุล</th>
+                            <th className="py-3 px-4 font-semibold">คณะ / สาขาวิชา</th>
+                            <th className="py-3 px-4 font-semibold">อาการสำคัญ</th>
+                            <th className="py-3 px-4 font-semibold">ระดับความเร่งด่วน</th>
+                            <th className="py-3 px-4 font-semibold">สถานะ</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                          {visits.slice(0, 5).map((v) => (
+                            <tr key={v.id} className="hover:bg-slate-500/5">
+                              <td className="py-3 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">{v.id}</td>
+                              <td className="py-3 px-4 font-mono">{v.time}</td>
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-200 dark:bg-slate-800">
+                                  {v.patientRole || 'นักศึกษา'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-bold">{v.studentName}</td>
+                              <td className="py-3 px-4 text-slate-500">{v.faculty} {v.department ? `• ${v.department}` : ''}</td>
+                              <td className="py-3 px-4 max-w-xs truncate">{v.symptom}</td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                  v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
+                                  v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                                  'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                }`}>
+                                  {v.triage}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-medium">{v.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           )}
 
-          {/* VIEW 2: VISIT RECORD (บันทึกเข้าใช้บริการ) */}
+          {/* VIEW 2: VISIT RECORD (บันทึกการรักษา) */}
           {activeTab === 'visit-record' && (
-            <div className="max-w-6xl mx-auto space-y-6">
-              <div className={`p-6 rounded-2xl border ${theme.card}`}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6">
+              <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card}`}>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-5 pb-4 border-b border-slate-200 dark:border-slate-800">
                   <div>
-                    <h3 className={`font-bold text-lg ${theme.heading}`}>บันทึกการเข้าใช้บริการห้องพยาบาล</h3>
+                    <h3 className={`font-bold text-base sm:text-lg ${theme.heading}`}>บันทึกการเข้าใช้บริการห้องพยาบาล</h3>
                     <p className={`text-xs mt-1 ${theme.subText}`}>
                       เพิ่มข้อมูลผู้ป่วย • ตรวจสอบการแพ้ยาอัตโนมัติ • เลือกเตียงพักฟื้น • จ่ายยาและตัดสต็อก • บันทึกลงฐานข้อมูล
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <button 
                       onClick={() => setShowPatientSearchModal(true)}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/30 text-xs font-semibold hover:bg-teal-500/20"
+                      className="flex-1 sm:flex-initial min-h-[42px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/30 text-xs font-semibold hover:bg-teal-500/20"
                     >
                       <Search size={15} /> ค้นหาประวัติเดิม
                     </button>
                     <button 
                       onClick={resetVisitForm}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="min-h-[42px] flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                       ล้างฟอร์ม
                     </button>
@@ -1491,14 +1704,14 @@ export default function App() {
                 </div>
 
                 {/* FORM GRID */}
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-5 sm:gap-6">
                   
-                  {/* LEFT COLUMN: ข้อมูลผู้ป่วย + เตียง + ยา (7 cols) */}
+                  {/* LEFT COLUMN: ข้อมูลผู้ป่วย + เตียง + ยา */}
                   <div className="contents">
                     
                     {/* 1. ข้อมูลผู้เข้ารับบริการ & ประเภท */}
- <div className={`order-1 p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
-                      <div className="flex items-center justify-between">
+                    <div className={`order-1 p-4 sm:p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
                           <UserCheck size={16} /> 1. ข้อมูลผู้เข้ารับบริการ
                         </span>
@@ -1508,9 +1721,9 @@ export default function App() {
                               const match = students.find(s => s.id === patientId.trim());
                               if (match) autoFillPatient(match);
                             }}
-                            className="text-[11px] font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 hover:bg-teal-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1"
+                            className="min-h-[34px] text-[11px] font-bold text-teal-600 dark:text-teal-400 bg-teal-500/10 hover:bg-teal-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1"
                           >
-                            ⚡ ดึงข้อมูลเดิมจากฐานข้อมูล
+                            ดึงข้อมูลเดิมจากฐานข้อมูล
                           </button>
                         )}
                       </div>
@@ -1518,13 +1731,13 @@ export default function App() {
                       {/* Role Selector: อาจารย์ นักศึกษา เจ้าหน้าที่ บุคลากร */}
                       <div>
                         <label className={`block text-xs font-semibold mb-1.5 ${theme.subText}`}>ประเภทผู้รับบริการ *</label>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {USER_ROLES.map(role => (
                             <button
                               key={role}
                               type="button"
                               onClick={() => setPatientRole(role)}
-                              className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center ${
+                              className={`min-h-[42px] py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
                                 patientRole === role
                                   ? 'bg-teal-600 text-white border-teal-600 shadow-md shadow-teal-600/20'
                                   : darkMode 
@@ -1532,7 +1745,6 @@ export default function App() {
                                     : 'border-slate-200 text-slate-600 hover:bg-slate-100 bg-white'
                               }`}
                             >
-                              {role === 'นักศึกษา' ? '🎓 ' : role === 'อาจารย์' ? '👨‍🏫 ' : role === 'เจ้าหน้าที่' ? '💼 ' : '👥 '}
                               {role}
                             </button>
                           ))}
@@ -1550,7 +1762,7 @@ export default function App() {
                             placeholder={patientRole === 'นักศึกษา' ? 'เช่น 66010012' : 'เช่น T-1002 หรือ STF-01'}
                             value={patientId}
                             onChange={(e) => setPatientId(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border font-mono ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border font-mono ${theme.inputBg}`}
                           />
                         </div>
                         <div>
@@ -1558,7 +1770,7 @@ export default function App() {
                           <select 
                             value={bloodGroup}
                             onChange={(e) => setBloodGroup(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           >
                             <option>ไม่ระบุ</option>
                             <option>A</option>
@@ -1579,7 +1791,7 @@ export default function App() {
                             placeholder="เช่น ธนกฤต"
                             value={firstName}
                             onChange={(e) => setFirstName(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           />
                         </div>
                         <div>
@@ -1590,7 +1802,7 @@ export default function App() {
                             placeholder="เช่น วิทยานุสรณ์"
                             value={lastName}
                             onChange={(e) => setLastName(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           />
                         </div>
                       </div>
@@ -1602,7 +1814,7 @@ export default function App() {
                           <select 
                             value={faculty}
                             onChange={(e) => setFaculty(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           >
                             {STANDARD_FACULTIES.map(fac => <option key={fac} value={fac}>{fac}</option>)}
                           </select>
@@ -1612,7 +1824,7 @@ export default function App() {
                               placeholder="ระบุคณะ / สำนัก..."
                               value={customFaculty}
                               onChange={(e) => setCustomFaculty(e.target.value)}
-                              className={`w-full mt-2 px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                              className={`w-full min-h-[42px] mt-2 px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                             />
                           )}
                         </div>
@@ -1623,7 +1835,7 @@ export default function App() {
                             placeholder="เช่น วิศวกรรมคอมพิวเตอร์"
                             value={department}
                             onChange={(e) => setDepartment(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           />
                         </div>
                       </div>
@@ -1636,7 +1848,7 @@ export default function App() {
                             <select 
                               value={patientYear}
                               onChange={(e) => setPatientYear(e.target.value)}
-                              className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                              className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                             >
                               <option>ชั้นปีที่ 1</option>
                               <option>ชั้นปีที่ 2</option>
@@ -1653,22 +1865,22 @@ export default function App() {
                             placeholder="เช่น 081-234-5678"
                             value={phoneNumber}
                             onChange={(e) => setPhoneNumber(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           />
                         </div>
                       </div>
 
                       {/* 2. ประวัติการแพ้ยา & อาการที่แพ้ */}
                       <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-1">
                           <label className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-                            <ShieldAlert size={16} /> ประวัติการแพ้ยา & อาการที่แพ้ (ระบบตรวจจับอัตโนมัติ)
+                            <ShieldAlert size={16} /> ประวัติการแพ้ยา & อาการที่แพ้ (ตรวจจับอัตโนมัติ)
                           </label>
-                          <span className={`text-[10px] ${theme.subText}`}>พิมพ์ชื่อยาแล้วกด Enter หรือกดปุ่มด้านล่าง</span>
+                          <span className={`text-[10px] ${theme.subText}`}>พิมพ์ชื่อยาแล้วกดเพิ่ม</span>
                         </div>
 
                         {/* กล่องพิมพ์ยาที่แพ้ */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <input 
                             type="text" 
                             placeholder="ระบุยาที่แพ้ เช่น Penicillin, Amoxicillin, Ibuprofen..."
@@ -1680,12 +1892,12 @@ export default function App() {
                                 addAllergyTag(allergyInputText);
                               }
                             }}
-                            className={`flex-1 px-3 py-2 text-xs rounded-xl border focus:border-rose-500 ${theme.inputBg}`}
+                            className={`flex-1 min-h-[42px] px-3 py-2 text-xs rounded-xl border focus:border-rose-500 ${theme.inputBg}`}
                           />
                           <button
                             type="button"
                             onClick={() => addAllergyTag(allergyInputText)}
-                            className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 flex items-center gap-1"
+                            className="min-h-[42px] px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 flex items-center justify-center gap-1 shrink-0"
                           >
                             <Plus size={14} /> เพิ่มยาที่แพ้
                           </button>
@@ -1699,7 +1911,7 @@ export default function App() {
                               key={d}
                               type="button"
                               onClick={() => addAllergyTag(d)}
-                              className="text-[10px] px-2 py-0.5 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50"
+                              className="min-h-[30px] text-[11px] px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50"
                             >
                               + {d}
                             </button>
@@ -1707,15 +1919,15 @@ export default function App() {
                         </div>
 
                         {/* แท็กแสดงยาที่แพ้ */}
-                        <div className="flex flex-wrap gap-1.5 min-h-[30px] p-2 rounded-xl bg-rose-500/5 border border-rose-500/20">
+                        <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2.5 rounded-xl bg-rose-500/5 border border-rose-500/20">
                           {patientAllergies.length === 0 ? (
-                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ ไม่มีประวัติแพ้ยา (ปลอดภัย)</span>
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">ไม่มีประวัติแพ้ยา (ปลอดภัย)</span>
                           ) : (
                             patientAllergies.map((alg, i) => (
-                              <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600 text-white text-xs font-bold shadow-sm animate-in fade-in-50">
-                                ⚠️ {alg}
-                                <button type="button" onClick={() => removeAllergyTag(alg)} className="hover:opacity-75 ml-1">
-                                  <X size={12} />
+                              <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-600 text-white text-xs font-bold shadow-sm">
+                                {alg}
+                                <button type="button" onClick={() => removeAllergyTag(alg)} className="hover:opacity-75 p-0.5">
+                                  <X size={13} />
                                 </button>
                               </span>
                             ))
@@ -1730,19 +1942,19 @@ export default function App() {
                             placeholder="เช่น ผื่นคัน ลมพิษ แน่นหน้าอก ปากบวม หายใจไม่ออก คลื่นไส้..."
                             value={allergyReactionText}
                             onChange={(e) => setAllergyReactionText(e.target.value)}
-                            className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                            className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* 3. เลือกเตียงพักฟื้น และดูเตียงที่ว่างเรียลไทม์ */}
- <div className={`order-3 p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
-                      <div className="flex items-center justify-between">
+                    <div className={`order-3 p-4 sm:p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
-                          <Bed size={16} /> 3. เลือกเตียงพักฟื้น (สถานะเตียงว่างเรียลไทม์)
+                          <Bed size={16} /> 3. เลือกเตียงพักฟื้น (เรียลไทม์)
                         </span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-lg ${
                           availableBedsCount > 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600'
                         }`}>
                           ว่าง {availableBedsCount} / {beds.length} เตียง
@@ -1750,25 +1962,25 @@ export default function App() {
                       </div>
 
                       <p className={`text-[11px] ${theme.subText}`}>
-                        คลิกเลือกเตียงที่ต้องการให้ผู้ป่วยนอนพักฟื้น (ระบบจะอัปเดตผังเตียงและบันทึกลงฐานข้อมูล)
+                        แตะเลือกเตียงที่ต้องการให้ผู้ป่วยนอนพักฟื้น (ระบบจะอัปเดตผังเตียงและบันทึกลงฐานข้อมูล)
                       </p>
 
                       {/* ตัวเลือกเตียง Interactive */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      <div className="grid grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-3 gap-2.5">
                         {/* ไม่นอนเตียง */}
                         <div
                           onClick={() => setAssignedBedId('')}
-                          className={`p-3 rounded-xl border cursor-pointer transition-all text-xs font-bold flex flex-col justify-between ${
+                          className={`min-h-[64px] p-3 rounded-xl border cursor-pointer transition-all text-xs font-bold flex flex-col justify-between ${
                             assignedBedId === ''
                               ? 'border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/20'
                               : darkMode ? 'border-slate-800 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-100 text-slate-700 bg-white'
                           }`}
                         >
                           <div className="flex justify-between items-center">
-                            <span>⚪ ไม่นอนเตียง</span>
+                            <span>ไม่นอนเตียง</span>
                             {assignedBedId === '' && <Check size={14} className="text-teal-600" />}
                           </div>
-                          <span className={`text-[10px] mt-2 font-normal ${theme.subText}`}>รับยาแล้วกลับ</span>
+                          <span className={`text-[10px] mt-1.5 font-normal ${theme.subText}`}>รับยาแล้วกลับ</span>
                         </div>
 
                         {/* เตียง 1 - เตียง 6 */}
@@ -1781,7 +1993,7 @@ export default function App() {
                               onClick={() => {
                                 if (!isOccupied) setAssignedBedId(b.id);
                               }}
-                              className={`p-3 rounded-xl border transition-all text-xs flex flex-col justify-between ${
+                              className={`min-h-[64px] p-3 rounded-xl border transition-all text-xs flex flex-col justify-between ${
                                 isOccupied 
                                   ? 'opacity-60 cursor-not-allowed bg-rose-500/5 border-rose-500/30' 
                                   : isSelected
@@ -1791,22 +2003,22 @@ export default function App() {
                                       : 'cursor-pointer border-slate-200 hover:bg-slate-100 text-slate-700 bg-white'
                               }`}
                             >
-                              <div className="flex justify-between items-center">
+                              <div className="flex justify-between items-center gap-1">
                                 <span className="font-bold truncate">{b.name}</span>
                                 {isSelected ? (
-                                  <Check size={14} className="text-teal-600" />
+                                  <Check size={14} className="text-teal-600 shrink-0" />
                                 ) : (
-                                  <span className={`w-2 h-2 rounded-full ${isOccupied ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${isOccupied ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
                                 )}
                               </div>
-                              <div className="mt-2 text-[10px]">
+                              <div className="mt-1.5 text-[10px]">
                                 {isOccupied ? (
                                   <span className="text-rose-600 dark:text-rose-400 font-bold truncate block">
-                                    🔴 ครองเตียง: {b.studentName}
+                                    ไม่ว่าง: {b.studentName}
                                   </span>
                                 ) : (
                                   <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                    🟢 ว่าง (คลิกเลือก)
+                                    ว่าง (แตะเลือก)
                                   </span>
                                 )}
                               </div>
@@ -1817,42 +2029,44 @@ export default function App() {
                     </div>
 
                     {/* 4. รายการจ่ายยา & ระบบตรวจสอบการแพ้ยาอัตโนมัติ */}
- <div className={`order-4 p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
-                      <div className="flex items-center justify-between">
+                    <div className={`order-4 p-4 sm:p-5 rounded-2xl border space-y-3 ${theme.cardInner}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-1">
                         <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
                           <Pill size={16} /> 4. รายการจ่ายยา & เวชภัณฑ์
                         </span>
-                        <span className={`text-[11px] ${theme.subText}`}>ระบบตรวจสอบแพ้ยาตรงและข้ามกลุ่มอัตโนมัติ</span>
+                        <span className={`text-[11px] ${theme.subText}`}>ตรวจแพ้ยาตรงและข้ามกลุ่มอัตโนมัติ</span>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <select
                           value={dispenseMedId}
                           onChange={(e) => setDispenseMedId(e.target.value)}
-                          className={`flex-1 min-w-0 px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                          className={`flex-1 min-w-0 min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                         >
                           <option value="">-- เลือกยา / เวชภัณฑ์ --</option>
                           {medicines.map(m => {
                             const risk = checkDrugAllergy(m.name, patientAllergies);
                             return (
                               <option key={m.id} value={m.id} disabled={m.stock <= 0}>
-                                {risk ? '⛔ ' : ''}{m.name}{m.en ? ` (${m.en})` : ''} (คงเหลือ {m.stock} {m.unit}){risk ? ' — ผู้ป่วยแพ้ยา!' : ''}
+                                {risk ? '[แพ้ยา] ' : ''}{m.name}{m.en ? ` (${m.en})` : ''} (คงเหลือ {m.stock} {m.unit})
                               </option>
                             );
                           })}
                         </select>
-                        <input
-                          type="number" min={1} value={dispenseQty}
-                          onChange={(e) => setDispenseQty(Math.max(1, parseInt(e.target.value) || 1))}
-                          className={`w-16 px-2 py-2 text-xs rounded-xl border text-center font-bold ${theme.inputBg}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => { if (dispenseMedId) addMedToDispense(dispenseMedId, dispenseQty); }}
-                          className="px-3.5 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 flex items-center gap-1"
-                        >
-                          <Plus size={14} /> เพิ่มยา
-                        </button>
+                        <div className="flex gap-2">
+                          <input
+                            type="number" min={1} value={dispenseQty}
+                            onChange={(e) => setDispenseQty(Math.max(1, parseInt(e.target.value) || 1))}
+                            className={`w-20 min-h-[42px] px-2 py-2 text-xs rounded-xl border text-center font-bold ${theme.inputBg}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => { if (dispenseMedId) addMedToDispense(dispenseMedId, dispenseQty); }}
+                            className="flex-1 sm:flex-initial min-h-[42px] px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 flex items-center justify-center gap-1"
+                          >
+                            <Plus size={14} /> เพิ่มยา
+                          </button>
+                        </div>
                       </div>
 
                       {/* การบล็อกเมื่อตรวจพบความเสี่ยงแพ้ยา */}
@@ -1870,16 +2084,16 @@ export default function App() {
                       ) : (
                         <div className="space-y-1.5">
                           {dispenseList.map(d => (
-                            <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
-                              <span className="font-bold text-emerald-700 dark:text-emerald-300">✓ {d.name}</span>
-                              <span className="flex items-center gap-3">
+                            <div key={d.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
+                              <span className="font-bold text-emerald-700 dark:text-emerald-300 truncate pr-2">{d.name}</span>
+                              <span className="flex items-center gap-3 shrink-0">
                                 <span className="font-mono font-bold">{d.qty} {d.unit}</span>
                                 <button 
                                   type="button" 
                                   onClick={() => setDispenseList(dispenseList.filter(x => x.id !== d.id))} 
-                                  className="text-rose-500 hover:text-rose-700"
+                                  className="p-1 text-rose-500 hover:text-rose-700"
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={15} />
                                 </button>
                               </span>
                             </div>
@@ -1889,12 +2103,12 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* RIGHT COLUMN: อาการ + AI ช่วยวินิจฉัย + Triage + บันทึก (5 cols) */}
+                  {/* RIGHT COLUMN: อาการ + AI ช่วยวินิจฉัย + Triage + บันทึก */}
                   <div className="contents">
                     
-                    <div className={`order-2 p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
- <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
- <Activity size={16} /> 2. อาการและการคัดกรอง
+                    <div className={`order-2 p-4 sm:p-5 rounded-2xl border space-y-4 ${theme.cardInner}`}>
+                      <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
+                        <Activity size={16} /> 2. อาการและการคัดกรอง
                       </span>
 
                       {/* รายการอาการมาตรฐาน */}
@@ -1916,7 +2130,7 @@ export default function App() {
                                     setSelectedStandardSymptoms([...selectedStandardSymptoms, sym]);
                                   }
                                 }}
-                                className={`text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all text-left ${
+                                className={`min-h-[34px] text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all text-left ${
                                   isSelected 
                                     ? 'bg-teal-600 text-white shadow-md' 
                                     : darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-700 border hover:bg-slate-100'
@@ -1937,16 +2151,16 @@ export default function App() {
                           placeholder="เช่น ปวดศีรษะตุบๆ ข้างขวา เริ่มมีอาการเมื่อ 2 ชั่วโมงก่อน..."
                           value={customSymptomNote}
                           onChange={(e) => setCustomSymptomNote(e.target.value)}
-                          className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                          className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                         />
                       </div>
 
                       {/* ปุ่ม AI ซักประวัติ & วิเคราะห์อาการ */}
-                      <div className="grid grid-cols-2 gap-2.5 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                         <button 
                           type="button"
                           onClick={startInterview}
-                          className="py-2.5 px-2 rounded-xl border-2 border-teal-500 text-teal-700 dark:text-teal-300 font-bold text-xs hover:bg-teal-500/10 flex items-center justify-center gap-1.5"
+                          className="min-h-[44px] py-2.5 px-3 rounded-xl border-2 border-teal-500 text-teal-700 dark:text-teal-300 font-bold text-xs hover:bg-teal-500/10 flex items-center justify-center gap-1.5"
                         >
                           <MessageCircleQuestion size={16} /> AI ซักประวัติ (5 ข้อ)
                         </button>
@@ -1954,7 +2168,7 @@ export default function App() {
                           type="button"
                           onClick={() => handleRunAiSymptomChecker()}
                           disabled={aiAnalyzing}
-                          className="py-2.5 px-2 rounded-xl bg-gradient-to-r from-teal-600 to-sky-500 text-white font-bold text-xs shadow-lg shadow-teal-500/20 hover:brightness-110 flex items-center justify-center gap-1.5"
+                          className="min-h-[44px] py-2.5 px-3 rounded-xl bg-gradient-to-r from-teal-600 to-sky-500 text-white font-bold text-xs shadow-lg shadow-teal-500/20 hover:brightness-110 flex items-center justify-center gap-1.5"
                         >
                           {aiAnalyzing ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />}
                           <span>AI วิเคราะห์ & แนะนำ</span>
@@ -1974,7 +2188,7 @@ export default function App() {
                               key={t.v}
                               type="button"
                               onClick={() => setTriageLevel(t.v)}
-                              className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                              className={`min-h-[42px] py-2 rounded-xl text-xs font-bold border transition-all ${
                                 triageLevel === t.v
                                   ? t.c === 'emerald' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' : t.c === 'amber' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : 'bg-rose-600 text-white border-rose-600 shadow-sm'
                                   : darkMode ? 'border-slate-700 text-slate-300' : 'border-slate-200 text-slate-600 bg-white'
@@ -1994,7 +2208,7 @@ export default function App() {
                           value={diagnosisInput}
                           onChange={(e) => setDiagnosisInput(e.target.value)}
                           placeholder="เช่น Common cold, Tension headache, Acute gastritis..."
-                          className={`w-full px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
+                          className={`w-full min-h-[42px] px-3 py-2 text-xs rounded-xl border ${theme.inputBg}`}
                         />
                       </div>
                     </div>
@@ -2014,18 +2228,18 @@ export default function App() {
                           วินิจฉัยที่สงสัย: {aiSuggestion.diagnoses.join(', ')}
                         </p>
                         {aiSuggestion.suggestedMeds.length > 0 && (
-                          <div className="text-xs">
+                          <div className="text-xs flex flex-wrap gap-1.5 items-center">
                             <span className="font-semibold text-teal-800 dark:text-teal-300">ยาที่แนะนำ: </span>
                             {aiSuggestion.suggestedMeds.map((m: any, i: number) => (
-                              <span key={i} className="inline-block mr-2">
+                              <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/60 dark:bg-slate-900/60 border border-teal-500/20">
                                 {m.name}
                                 {!m.allergy && !m.outOfStock && (
                                   <button 
                                     type="button" 
                                     onClick={() => addMedToDispense(m.name, 1)} 
-                                    className="ml-1 text-[10px] text-teal-600 font-bold underline"
+                                    className="text-[11px] text-teal-600 font-bold underline px-1"
                                   >
-                                    [+จ่าย]
+                                    +จ่าย
                                   </button>
                                 )}
                               </span>
@@ -2037,14 +2251,23 @@ export default function App() {
 
                     {/* ปุ่มบันทึกลงฐานข้อมูลหลัก */}
                     <div className="order-5 space-y-2 pt-2">
- <button 
- type="button"
- onClick={handleSaveVisit}
-                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-sky-500 hover:from-teal-700 hover:to-sky-600 text-white font-bold text-sm shadow-xl shadow-teal-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
-                      >
-                        <Database size={18} />
-                        <span>บันทึกข้อมูลการรักษาลงฐานข้อมูล</span>
-                      </button>
+                      <div className="flex flex-col sm:flex-row gap-2.5">
+                        <button
+                          type="button"
+                          onClick={resetVisitForm}
+                          className="min-h-[48px] px-5 py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          ยกเลิก / ล้างข้อมูล
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={handleSaveVisit}
+                          className="flex-1 min-h-[48px] py-3.5 px-5 rounded-2xl bg-gradient-to-r from-teal-600 to-sky-500 hover:from-teal-700 hover:to-sky-600 text-white font-bold text-sm shadow-xl shadow-teal-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+                        >
+                          <Database size={18} />
+                          <span>บันทึกข้อมูลการรักษาลงฐานข้อมูล</span>
+                        </button>
+                      </div>
                       <p className={`text-[11px] text-center ${theme.subText}`}>
                         ตัดสต็อกยา • จัดสรรเตียงเรียลไทม์ • บันทึกลงฐานข้อมูลถาวร
                       </p>
@@ -2054,75 +2277,109 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ตารางประวัติการรับบริการทั้งหมดในฐานข้อมูล */}
-              <div className={`rounded-2xl border p-6 ${theme.card}`}>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className={`font-bold text-base ${theme.heading}`}>
-                    ประวัติการเข้ารับบริการทั้งหมดในฐานข้อมูล ({visits.length} รายการ)
+              {/* ประวัติการรับบริการทั้งหมดในฐานข้อมูล (Cards on Mobile, Table on Desktop) */}
+              <div className={`rounded-2xl border p-4 sm:p-6 ${theme.card}`}>
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                  <h3 className={`font-bold text-sm sm:text-base ${theme.heading}`}>
+                    ประวัติการเข้ารับบริการทั้งหมด ({visits.length} รายการ)
                   </h3>
                   {visits.length > 0 && (
                     <button
                       onClick={handleResetAllToZero}
-                      className="text-xs text-rose-500 hover:underline flex items-center gap-1"
+                      className="min-h-[36px] px-2.5 py-1 rounded-lg text-xs text-rose-500 hover:bg-rose-500/10 flex items-center gap-1"
                     >
-                      <Trash2 size={12} /> ล้างประวัติเป็น 0
+                      <Trash2 size={13} /> ล้างประวัติเป็น 0
                     </button>
                   )}
                 </div>
 
                 {visits.length === 0 ? (
                   <div className="py-8 text-center text-xs text-slate-400">
-                    ยังไม่มีข้อมูลประวัติการรักษา (ข้อมูลเป็น 0)
+                    ยังไม่มีข้อมูลประวัติการรักษา
                   </div>
                 ) : (
-                  <div className="overflow-x-auto max-h-96">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className={`border-b ${theme.tableHeader}`}>
-                          <th className="py-2.5 px-3 font-semibold">รหัส</th>
-                          <th className="py-2.5 px-3 font-semibold">เวลา</th>
-                          <th className="py-2.5 px-3 font-semibold">ประเภท</th>
-                          <th className="py-2.5 px-3 font-semibold">ผู้รับบริการ</th>
-                          <th className="py-2.5 px-3 font-semibold">คณะ / สาขาวิชา</th>
-                          <th className="py-2.5 px-3 font-semibold">อาการสำคัญ</th>
-                          <th className="py-2.5 px-3 font-semibold">Triage</th>
-                          <th className="py-2.5 px-3 font-semibold">เตียง</th>
-                          <th className="py-2.5 px-3 font-semibold">ยาที่จ่าย</th>
-                          <th className="py-2.5 px-3 font-semibold">สถานะ</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                        {visits.map(v => (
-                          <tr key={v.id} className="hover:bg-slate-500/5">
-                            <td className="py-2.5 px-3 font-mono font-bold text-teal-600 dark:text-teal-400">{v.id}</td>
-                            <td className="py-2.5 px-3 font-mono">{v.time}</td>
-                            <td className="py-2.5 px-3">
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800">
-                                {v.patientRole || 'นักศึกษา'}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 font-semibold">{v.studentName}</td>
-                            <td className="py-2.5 px-3 text-slate-500">{v.faculty} {v.department ? `(${v.department})` : ''}</td>
-                            <td className="py-2.5 px-3 max-w-xs truncate">{v.symptom}</td>
-                            <td className="py-2.5 px-3">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600' :
-                                v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600' :
-                                'bg-emerald-500/10 text-emerald-600'
-                              }`}>
-                                {v.triage}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 font-medium text-teal-600 dark:text-teal-400">
-                              {v.bedId ? beds.find(b => b.id === v.bedId)?.name || v.bedId : '-'}
-                            </td>
-                            <td className="py-2.5 px-3">{(v.meds || []).join(', ') || '-'}</td>
-                            <td className="py-2.5 px-3 font-medium">{v.status}</td>
+                  <>
+                    {/* Mobile Visit Cards (< 768px) */}
+                    <div className="md:hidden space-y-2.5">
+                      {visits.map(v => (
+                        <div key={v.id} className={`p-3.5 rounded-xl border text-xs space-y-2 ${theme.cardInner}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={`font-bold text-sm truncate ${theme.heading}`}>{v.studentName}</p>
+                              <p className={`text-[11px] font-mono ${theme.subText}`}>{v.id} • {v.time} • {v.patientRole || 'นักศึกษา'}</p>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                              v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600' :
+                              v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600' :
+                              'bg-emerald-500/10 text-emerald-600'
+                            }`}>
+                              {v.triage}
+                            </span>
+                          </div>
+                          <p className={`text-[11px] ${theme.subText}`}>อาการ: <strong className={theme.heading}>{v.symptom}</strong></p>
+                          {(v.meds && v.meds.length > 0) && (
+                            <p className={`text-[11px] ${theme.subText}`}>ยาที่จ่าย: {v.meds.join(', ')}</p>
+                          )}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200 dark:border-slate-800 text-[11px]">
+                            <span className="text-teal-600 dark:text-teal-400 font-semibold">
+                              เตียง: {v.bedId ? beds.find(b => b.id === v.bedId)?.name || v.bedId : 'ไม่ใช้เตียง'}
+                            </span>
+                            <span className="font-medium">{v.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop Table (>= 768px) */}
+                    <div className="hidden md:block overflow-x-auto max-h-96">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className={`border-b ${theme.tableHeader}`}>
+                            <th className="py-2.5 px-3 font-semibold">รหัส</th>
+                            <th className="py-2.5 px-3 font-semibold">เวลา</th>
+                            <th className="py-2.5 px-3 font-semibold">ประเภท</th>
+                            <th className="py-2.5 px-3 font-semibold">ผู้รับบริการ</th>
+                            <th className="py-2.5 px-3 font-semibold">คณะ / สาขาวิชา</th>
+                            <th className="py-2.5 px-3 font-semibold">อาการสำคัญ</th>
+                            <th className="py-2.5 px-3 font-semibold">Triage</th>
+                            <th className="py-2.5 px-3 font-semibold">เตียง</th>
+                            <th className="py-2.5 px-3 font-semibold">ยาที่จ่าย</th>
+                            <th className="py-2.5 px-3 font-semibold">สถานะ</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                          {visits.map(v => (
+                            <tr key={v.id} className="hover:bg-slate-500/5">
+                              <td className="py-2.5 px-3 font-mono font-bold text-teal-600 dark:text-teal-400">{v.id}</td>
+                              <td className="py-2.5 px-3 font-mono">{v.time}</td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800">
+                                  {v.patientRole || 'นักศึกษา'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-semibold">{v.studentName}</td>
+                              <td className="py-2.5 px-3 text-slate-500">{v.faculty} {v.department ? `(${v.department})` : ''}</td>
+                              <td className="py-2.5 px-3 max-w-xs truncate">{v.symptom}</td>
+                              <td className="py-2.5 px-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600' :
+                                  v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600' :
+                                  'bg-emerald-500/10 text-emerald-600'
+                                }`}>
+                                  {v.triage}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-medium text-teal-600 dark:text-teal-400">
+                                {v.bedId ? beds.find(b => b.id === v.bedId)?.name || v.bedId : '-'}
+                              </td>
+                              <td className="py-2.5 px-3">{(v.meds || []).join(', ') || '-'}</td>
+                              <td className="py-2.5 px-3 font-medium">{v.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -2187,15 +2444,15 @@ export default function App() {
                 ))}
               </div>
 
-              <div className={`p-6 rounded-2xl border ${theme.card}`}>
+              <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card}`}>
                 <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
                   <div>
-                    <h3 className={`font-bold text-lg ${theme.heading}`}>สต็อกยา & เวชภัณฑ์ห้องพยาบาล</h3>
+                    <h3 className={`font-bold text-base sm:text-lg ${theme.heading}`}>สต็อกยา & เวชภัณฑ์ห้องพยาบาล</h3>
                     <p className={`text-xs mt-1 ${theme.subText}`}>ตัดสต็อกอัตโนมัติเมื่อจ่ายยา และแจ้งเตือนเมื่อยาเหลือน้อยหรือใกล้หมดอายุ</p>
                   </div>
                   <button
                     onClick={() => setMedFormOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-md flex items-center gap-1.5"
+                    className="w-full sm:w-auto min-h-[42px] px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-md flex items-center justify-center gap-1.5"
                   >
                     <Plus size={16} /> เพิ่มรายการยาใหม่
                   </button>
@@ -2215,36 +2472,90 @@ export default function App() {
                 </div>
 
                 {/* ค้นหา / กรอง */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <div className="relative flex-1 min-w-[200px]">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 mb-4">
+                  <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
                     <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.subText}`} />
                     <input
                       value={invSearch}
                       onChange={e => setInvSearch(e.target.value)}
                       placeholder="ค้นหาชื่อยา หรือรหัสยา..."
-                      className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`}
+                      className={`w-full min-h-[42px] pl-9 pr-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`}
                     />
                   </div>
-                  <select
-                    value={invCategory}
-                    onChange={e => setInvCategory(e.target.value)}
-                    className={`px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}
-                  >
-                    <option value="ทั้งหมด">ทุกหมวดหมู่</option>
-                    {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <select
-                    value={invFilter}
-                    onChange={e => setInvFilter(e.target.value as any)}
-                    className={`px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}
-                  >
-                    <option value="all">แสดงทุกสถานะ</option>
-                    <option value="low">เฉพาะยาที่ต้องเติม</option>
-                    <option value="expiring">เฉพาะยาใกล้หมดอายุ</option>
-                  </select>
+                  <div className="grid grid-cols-1 min-[360px]:grid-cols-2 sm:flex gap-2">
+                    <select
+                      value={invCategory}
+                      onChange={e => setInvCategory(e.target.value)}
+                      className={`min-h-[42px] px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}
+                    >
+                      <option value="ทั้งหมด">ทุกหมวดหมู่</option>
+                      {MEDICINE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select
+                      value={invFilter}
+                      onChange={e => setInvFilter(e.target.value as any)}
+                      className={`min-h-[42px] px-3 py-2 rounded-xl border text-xs outline-none ${theme.inputBg}`}
+                    >
+                      <option value="all">แสดงทุกสถานะ</option>
+                      <option value="low">เฉพาะยาที่ต้องเติม</option>
+                      <option value="expiring">เฉพาะยาใกล้หมดอายุ</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile Medicine Cards (< 768px) */}
+                <div className="md:hidden space-y-3">
+                  {filtered.length === 0 && (
+                    <div className={`py-8 text-center text-xs ${theme.subText}`}>ไม่พบรายการยาที่ตรงกับเงื่อนไข</div>
+                  )}
+                  {filtered.map(m => {
+                    const days = daysUntil(m.expiry);
+                    const need = Math.max(m.min * 3 - m.stock, 0);
+                    const pct = Math.min(100, Math.round((m.stock / (m.min * 3)) * 100));
+                    return (
+                      <div key={m.id} className={`p-4 rounded-2xl border text-xs space-y-3 ${theme.cardInner}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className={`font-bold text-sm ${theme.heading}`}>{m.name}</p>
+                            {m.en && <p className={`text-[11px] ${theme.subText}`}>({m.en})</p>}
+                            <p className={`text-[10px] font-mono mt-0.5 ${theme.subText}`}>{m.id} • {m.category}</p>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold shrink-0 ${statusClass(m)}`}>
+                            {statusLabel(m)}
+                          </span>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className={theme.subText}>คงเหลือ: <strong className={`font-mono ${theme.heading}`}>{m.stock} {m.unit}</strong></span>
+                            <span className={theme.subText}>ขั้นต่ำ: <span className="font-mono">{m.min} {m.unit}</span></span>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                            <div className={`h-full rounded-full ${barClass(m)}`} style={{ width: `${pct}%` }}></div>
+                          </div>
+                          {getStockStatus(m) !== 'ปกติ' && (
+                            <p className="text-[11px] mt-1 text-amber-600 font-semibold">ควรเติมเพิ่มประมาณ {need} {m.unit}</p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                          <span className={`text-[11px] font-mono ${days <= 90 ? 'text-rose-500 font-bold' : theme.subText}`}>
+                            {m.lot} • หมดอายุ {m.expiry}
+                          </span>
+                          <button
+                            onClick={() => { setRestockMed(m); setRestockQty(String(Math.max(need, m.min))); setRestockLot(''); setRestockExpiry(''); }}
+                            className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700"
+                          >
+                            + เติมสต็อก
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Table (>= 768px) */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className={`border-b ${theme.tableHeader}`}>
@@ -2295,7 +2606,7 @@ export default function App() {
                             <td className="py-3.5 px-4 text-right">
                               <button
                                 onClick={() => { setRestockMed(m); setRestockQty(String(Math.max(need, m.min))); setRestockLot(''); setRestockExpiry(''); }}
-                                className="px-3 py-1 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold hover:bg-teal-500/20 text-xs whitespace-nowrap"
+                                className="px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold hover:bg-teal-500/20 text-xs whitespace-nowrap"
                               >
                                 + เติมสต็อก
                               </button>
@@ -2437,88 +2748,137 @@ export default function App() {
             );
           })()}
 
-          {/* VIEW 4: DATA IMPORT */}
-          {activeTab === 'data-import' && (
-            <div className="max-w-4xl mx-auto space-y-6">
-              <div className={`p-8 rounded-2xl border text-center ${theme.card}`}>
-                <div className="w-16 h-16 rounded-2xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center mx-auto mb-4">
-                  <Upload size={32} />
-                </div>
-                <h3 className={`font-bold text-lg ${theme.heading}`}>นำเข้าข้อมูลผู้ใช้บริการผ่านไฟล์ Google Sheets / Excel</h3>
-                <p className={`text-xs mt-1 max-w-md mx-auto ${theme.subText}`}>
-                  ลากวางไฟล์ CSV หรือ XLSX เพื่อนำเข้ารายชื่อนักศึกษา อาจารย์ และบุคลากรเข้าสู่ฐานข้อมูลอัตโนมัติ
-                </p>
+          {/* VIEW 5: PATIENTS & STUDENTS DIRECTORY (Table on Desktop, Patient Cards on Mobile) */}
+          {activeTab === 'students' && (() => {
+            const q = studentSearch.trim().toLowerCase();
+            const filteredStudents = students.filter(s => {
+              if (studentFilterRole !== 'ทั้งหมด' && s.role !== studentFilterRole) return false;
+              if (q && !(
+                String(s.id || '').toLowerCase().includes(q) ||
+                String(s.name || '').toLowerCase().includes(q) ||
+                String(s.faculty || '').toLowerCase().includes(q) ||
+                (s.allergies || []).some((a: string) => a.toLowerCase().includes(q))
+              )) return false;
+              return true;
+            });
 
-                <div className="mt-8 p-8 rounded-2xl border-2 border-dashed border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10 transition-all cursor-pointer">
-                  <SheetIcon size={40} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-2" />
-                  <p className="text-xs font-semibold">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</p>
-                  <p className={`text-[11px] mt-1 ${theme.subText}`}>รองรับไฟล์ .csv, .xlsx (ขนาดไม่เกิน 25MB)</p>
-                </div>
-
-                <div className="mt-6 flex justify-center gap-4">
-                  <button 
-                    onClick={() => addToast('ซิงค์ข้อมูลสำเร็จ', 'ดึงข้อมูลนักศึกษาใหม่ 1,250 รายการจาก Google Sheets เรียบร้อย')}
-                    className="px-6 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-md"
-                  >
-                    ยืนยันการนำเข้าข้อมูล
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VIEW 5: PATIENTS & STUDENTS DIRECTORY */}
-          {activeTab === 'students' && (
-            <div className="max-w-6xl mx-auto space-y-6">
-              <div className={`p-6 rounded-2xl border ${theme.card}`}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            return (
+            <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6">
+              <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card}`}>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                   <div>
-                    <h3 className={`font-bold text-lg ${theme.heading}`}>ทะเบียนผู้รับบริการ & ประวัติการแพ้ยา</h3>
+                    <h3 className={`font-bold text-base sm:text-lg ${theme.heading}`}>ทะเบียนผู้รับบริการ & ประวัติการแพ้ยา</h3>
                     <p className={`text-xs mt-1 ${theme.subText}`}>รวมนักศึกษา อาจารย์ เจ้าหน้าที่ และบุคลากร ({students.length} รายการ)</p>
                   </div>
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    {/* Role Filter Chips */}
-                    <div className="flex gap-1 overflow-x-auto py-1">
-                      {['ทั้งหมด', 'นักศึกษา', 'อาจารย์', 'เจ้าหน้าที่', 'บุคลากร'].map(r => (
-                        <button
-                          key={r}
-                          onClick={() => setStudentFilterRole(r)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                            studentFilterRole === r
-                              ? 'bg-teal-600 text-white'
-                              : darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {r}
-                        </button>
-                      ))}
-                    </div>
+                </div>
+
+                {/* Search & Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-2.5 mb-5">
+                  <div className="relative flex-1">
+                    <Search size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme.subText}`} />
+                    <input
+                      type="text"
+                      value={studentSearch}
+                      onChange={e => setStudentSearch(e.target.value)}
+                      placeholder="ค้นหาชื่อ, รหัสประจำตัว, คณะ หรือยาที่แพ้..."
+                      className={`w-full min-h-[42px] pl-9 pr-3 py-2 rounded-xl border text-xs outline-none focus:border-teal-500 ${theme.inputBg}`}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['ทั้งหมด', 'นักศึกษา', 'อาจารย์', 'เจ้าหน้าที่', 'บุคลากร'].map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setStudentFilterRole(r)}
+                        className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          studentFilterRole === r
+                            ? 'bg-teal-600 text-white shadow-sm'
+                            : darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {students.length === 0 ? (
+                {filteredStudents.length === 0 ? (
                   <div className="py-12 text-center space-y-2">
-                    <p className={`text-sm font-semibold ${theme.heading}`}>ยังไม่มีข้อมูลผู้รับบริการในระบบ (ข้อมูลเป็น 0)</p>
+                    <p className={`text-sm font-semibold ${theme.heading}`}>ไม่พบข้อมูลผู้รับบริการที่ตรงกับเงื่อนไข</p>
                     <p className={`text-xs ${theme.subText}`}>เมื่อบันทึกข้อมูลการรักษา รายชื่อผู้ป่วยและประวัติแพ้ยาจะถูกจัดเก็บลงที่นี่โดยอัตโนมัติ</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className={`border-b ${theme.tableHeader}`}>
-                          <th className="py-3 px-4 font-semibold">รหัสประจำตัว</th>
-                          <th className="py-3 px-4 font-semibold">ประเภท</th>
-                          <th className="py-3 px-4 font-semibold">ชื่อ-นามสกุล</th>
-                          <th className="py-3 px-4 font-semibold">คณะ / สาขาวิชา</th>
-                          <th className="py-3 px-4 font-semibold">กรุ๊ปเลือด</th>
-                          <th className="py-3 px-4 font-semibold">ประวัติการแพ้ยา</th>
-                          <th className="py-3 px-4 font-semibold text-right">จัดการ</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                        {students
-                          .filter(s => studentFilterRole === 'ทั้งหมด' || s.role === studentFilterRole)
-                          .map(s => (
+                  <>
+                    {/* Mobile Patient Cards (< 768px) */}
+                    <div className="md:hidden space-y-3">
+                      {filteredStudents.map(s => {
+                        const hasAllergy = s.allergies && s.allergies.length > 0;
+                        return (
+                          <div key={s.id} className={`p-4 rounded-2xl border text-xs space-y-3 ${hasAllergy ? 'border-rose-500/30 bg-rose-500/5' : theme.cardInner}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className={`font-bold text-sm truncate ${theme.heading}`}>{s.name}</p>
+                                <p className={`text-[11px] font-mono mt-0.5 ${theme.subText}`}>
+                                  {s.id} • {s.role || 'นักศึกษา'} • เลือดกรุ๊ป {s.blood || '-'}
+                                </p>
+                              </div>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                                hasAllergy ? 'bg-rose-600 text-white' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                              }`}>
+                                {hasAllergy ? `แพ้ยา ${s.allergies.length} รายการ` : 'ไม่มีประวัติแพ้ยา'}
+                              </span>
+                            </div>
+
+                            {s.faculty && (
+                              <p className={`text-[11px] truncate ${theme.subText}`}>{s.faculty}{s.department ? ` • ${s.department}` : ''}</p>
+                            )}
+
+                            {hasAllergy && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {s.allergies.map((alg: string, i: number) => (
+                                  <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-300 text-[11px] font-bold border border-rose-500/25">
+                                    แพ้: {alg}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                              <button
+                                onClick={() => setDetailStudent(s)}
+                                className={`flex-1 min-h-[40px] px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 ${
+                                  darkMode ? 'border-slate-700 text-slate-200 hover:bg-slate-800' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                }`}
+                              >
+                                <Eye size={14} /> ดูรายละเอียด
+                              </button>
+                              <button
+                                onClick={() => setAllergyModalStudent(s)}
+                                className="flex-1 min-h-[40px] px-3 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 flex items-center justify-center gap-1"
+                              >
+                                <Plus size={14} /> บันทึกแพ้ยา
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop Table (>= 768px) */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className={`border-b ${theme.tableHeader}`}>
+                            <th className="py-3 px-4 font-semibold">รหัสประจำตัว</th>
+                            <th className="py-3 px-4 font-semibold">ประเภท</th>
+                            <th className="py-3 px-4 font-semibold">ชื่อ-นามสกุล</th>
+                            <th className="py-3 px-4 font-semibold">คณะ / สาขาวิชา</th>
+                            <th className="py-3 px-4 font-semibold">กรุ๊ปเลือด</th>
+                            <th className="py-3 px-4 font-semibold">ประวัติการแพ้ยา</th>
+                            <th className="py-3 px-4 font-semibold text-right">จัดการ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                          {filteredStudents.map(s => (
                             <tr key={s.id} className="transition-colors hover:bg-slate-500/5">
                               <td className="py-3.5 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">{s.id}</td>
                               <td className="py-3.5 px-4">
@@ -2533,55 +2893,143 @@ export default function App() {
                                 <div className="flex flex-wrap gap-1 items-center">
                                   {s.allergies && s.allergies.length > 0 ? s.allergies.map((alg: string, i: number) => (
                                     <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-300 text-[11px] font-bold border border-rose-500/20">
-                                      ⚠️ {alg}
+                                      {alg}
                                     </span>
                                   )) : (
                                     <span className="text-emerald-600 dark:text-emerald-400">ปกติ</span>
                                   )}
                                 </div>
                               </td>
-                              <td className="py-3.5 px-4 text-right space-x-2">
+                              <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                                <button
+                                  onClick={() => setDetailStudent(s)}
+                                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${
+                                    darkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  ดูข้อมูล
+                                </button>
                                 <button 
                                   onClick={() => setAllergyModalStudent(s)}
-                                  className="px-3 py-1 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold hover:bg-teal-500/20 text-xs"
+                                  className="px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold hover:bg-teal-500/20 text-xs"
                                 >
                                   + แพ้ยา
                                 </button>
                               </td>
                             </tr>
                           ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* VIEW 6: REPORTS */}
           {activeTab === 'reports' && (
             <Reports data={{ students, medicines, visits, beds }} theme={theme} addToast={addToast} />
           )}
 
-          {/* VIEW 7: AI ASSISTANT */}
+          {/* VIEW 7: AI ASSISTANT (Fallback route) */}
           {activeTab === 'ai-assistant' && (
             <AiChat data={{ students, medicines, visits, beds }} theme={theme} darkMode={darkMode} />
           )}
 
-          {/* VIEW 8: SETTINGS & DATABASE MANAGEMENT */}
-          {activeTab === 'settings' && (
-            <div className="max-w-3xl mx-auto space-y-6">
+          {/* VIEW 8: SETTINGS, ADMIN ACCESS, DATA IMPORT & DATABASE MANAGEMENT */}
+          {(activeTab === 'settings' || activeTab === 'data-import') && (
+            <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
               
-              {/* Supabase Cloud Database Setting Card */}
-              <div className={`p-6 rounded-3xl border ${theme.card} space-y-4 shadow-xl border-teal-500/30`}>
-                <div className="flex items-center justify-between">
+              {/* หมวด 1: สิทธิ์ผู้ดูแลระบบ (Admin Access) */}
+              <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card} space-y-3.5`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <div>
+                    <h3 className={`font-bold text-sm sm:text-base ${theme.heading}`}>สิทธิ์ผู้ดูแลระบบ (Admin Access)</h3>
+                    <p className={`text-xs ${theme.subText}`}>
+                      อีเมล @{ALLOWED_DOMAIN} ที่อยู่ในรายการนี้จะเข้าหน้าเจ้าหน้าที่ห้องพยาบาลได้
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {getVisibleAdminEmails().length === 0 ? (
+                    <span className={`text-xs ${theme.subText}`}>ใช้บัญชีผู้ดูแลระบบหลัก (ยังไม่ได้เพิ่มอีเมลเจ้าหน้าที่เพิ่มเติม)</span>
+                  ) : (
+                    getVisibleAdminEmails().map(e => (
+                      <span key={e} className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 flex items-center gap-2">
+                        <span className="break-all">{e}</span>
+                        {adminEmails.includes(e) && (
+                          <button
+                            onClick={() => handleRemoveAdminEmail(e)}
+                            className="p-1 rounded-lg text-rose-500 hover:bg-rose-500/10 shrink-0"
+                            title="ลบสิทธิ์ผู้ดูแล"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </span>
+                    ))
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    value={adminEmailInput}
+                    onChange={e => setAdminEmailInput(e.target.value)}
+                    placeholder={'เช่น nurse01@' + ALLOWED_DOMAIN}
+                    className={`flex-1 min-h-[42px] px-3 py-2 rounded-xl border text-xs ${theme.inputBg}`}
+                  />
+                  <button
+                    onClick={handleAddAdminEmail}
+                    className="min-h-[42px] px-5 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 shrink-0"
+                  >
+                    เพิ่มผู้ดูแล
+                  </button>
+                </div>
+                <p className={`text-[11px] ${theme.subText}`}>รายการที่เพิ่มจะบันทึกในเบราว์เซอร์นี้ หากต้องการให้ใช้ได้ทุกเครื่อง ให้กำหนดตัวแปร VITE_ADMIN_EMAILS ใน Vercel</p>
+              </div>
+
+              {/* หมวด 2: นำเข้าข้อมูล CSV / Excel (ย้ายมารวมในตั้งค่าระบบ) */}
+              <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card} space-y-4`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0">
+                    <Upload size={20} />
+                  </div>
+                  <div>
+                    <h3 className={`font-bold text-sm sm:text-base ${theme.heading}`}>นำเข้าข้อมูลผู้ใช้บริการ (CSV / Excel)</h3>
+                    <p className={`text-xs ${theme.subText}`}>นำเข้ารายชื่อนักศึกษา อาจารย์ และบุคลากรเข้าสู่ระบบ</p>
+                  </div>
+                </div>
+
+                <div className="p-6 rounded-2xl border-2 border-dashed border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10 transition-all text-center cursor-pointer">
+                  <SheetIcon size={34} className="mx-auto text-emerald-600 dark:text-emerald-400 mb-2" />
+                  <p className="text-xs font-semibold">แตะเพื่อเลือกไฟล์ หรือลากไฟล์ CSV / XLSX มาวางที่นี่</p>
+                  <p className={`text-[11px] mt-1 ${theme.subText}`}>รองรับไฟล์ .csv, .xlsx (ขนาดไม่เกิน 25MB)</p>
+                </div>
+
+                <div className="flex justify-end">
+                  <button 
+                    onClick={() => addToast('ซิงค์ข้อมูลสำเร็จ', 'ดึงข้อมูลนักศึกษาใหม่จากไฟล์นำเข้าเรียบร้อย')}
+                    className="w-full sm:w-auto min-h-[42px] px-5 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-md"
+                  >
+                    ยืนยันการนำเข้าข้อมูล
+                  </button>
+                </div>
+              </div>
+
+              {/* หมวด 3: ฐานข้อมูลคลาวด์ Supabase (PostgreSQL) */}
+              <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card} space-y-4 border-teal-500/30`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-2xl bg-gradient-to-tr from-teal-600 to-sky-500 text-white shadow-md shadow-teal-500/20">
-                      <Cloud size={22} />
+                    <div className="p-2.5 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 text-white shadow-md shadow-teal-500/20 shrink-0">
+                      <Cloud size={20} />
                     </div>
                     <div>
-                      <h3 className={`font-black text-base ${theme.heading}`}>ฐานข้อมูลคลาวด์ Supabase (PostgreSQL)</h3>
-                      <p className={`text-xs ${theme.subText}`}>ระบบรองรับการเชื่อมต่อฐานข้อมูลคลาวด์ออนไลน์ ซิงค์ข้อมูลข้ามอุปกรณ์แบบเรียลไทม์</p>
+                      <h3 className={`font-black text-sm sm:text-base ${theme.heading}`}>ฐานข้อมูลคลาวด์ Supabase (PostgreSQL)</h3>
+                      <p className={`text-xs ${theme.subText}`}>ซิงค์ข้อมูลข้ามอุปกรณ์แบบเรียลไทม์</p>
                     </div>
                   </div>
                   <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${
@@ -2589,11 +3037,11 @@ export default function App() {
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                       : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
                   }`}>
-                    {supabaseStatus === 'connected' ? '🟢 เชื่อมต่อ Supabase แล้ว' : '🟡 โหมด LocalDB (ออฟไลน์)'}
+                    {supabaseStatus === 'connected' ? 'เชื่อมต่อ Supabase แล้ว' : 'โหมด LocalDB'}
                   </span>
                 </div>
 
-                <div className="space-y-3 pt-2 text-xs">
+                <div className="space-y-3 pt-1 text-xs">
                   <div>
                     <label className={`block font-semibold mb-1 ${theme.heading}`}>Supabase Project URL</label>
                     <input
@@ -2601,7 +3049,7 @@ export default function App() {
                       placeholder="https://your-project.supabase.co"
                       value={supabaseUrl}
                       onChange={e => setSupabaseUrl(e.target.value)}
-                      className={`w-full p-2.5 rounded-xl border font-mono ${theme.inputBg}`}
+                      className={`w-full min-h-[42px] p-2.5 rounded-xl border font-mono ${theme.inputBg}`}
                     />
                   </div>
                   <div>
@@ -2611,16 +3059,16 @@ export default function App() {
                       placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                       value={supabaseKey}
                       onChange={e => setSupabaseKey(e.target.value)}
-                      className={`w-full p-2.5 rounded-xl border font-mono ${theme.inputBg}`}
+                      className={`w-full min-h-[42px] p-2.5 rounded-xl border font-mono ${theme.inputBg}`}
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2.5 pt-2">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 pt-1">
                   <button
                     onClick={handleSaveSupabaseConfig}
                     disabled={isTestingSupabase}
-                    className="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 transition-all flex items-center gap-1.5 shadow-md shadow-teal-600/20"
+                    className="min-h-[42px] px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 transition-all flex items-center justify-center gap-1.5 shadow-md shadow-teal-600/20"
                   >
                     {isTestingSupabase ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                     <span>บันทึก & ทดสอบเชื่อมต่อ</span>
@@ -2628,7 +3076,7 @@ export default function App() {
 
                   <button
                     onClick={handleCopySqlSchema}
-                    className="px-4 py-2 rounded-xl border border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10 text-teal-700 dark:text-teal-300 font-bold text-xs transition-all flex items-center gap-1.5"
+                    className="min-h-[42px] px-4 py-2 rounded-xl border border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10 text-teal-700 dark:text-teal-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
                   >
                     <Copy size={14} />
                     <span>คัดลอก SQL Script สร้างตาราง</span>
@@ -2637,55 +3085,20 @@ export default function App() {
                   <button
                     onClick={handleSyncToSupabase}
                     disabled={isSyncingSupabase || supabaseStatus !== 'connected'}
-                    className="px-4 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
+                    className="min-h-[42px] px-4 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     {isSyncingSupabase ? <RefreshCw className="animate-spin" size={14} /> : <Cloud size={14} />}
                     <span>ซิงค์ข้อมูลขึ้น Supabase Cloud</span>
                   </button>
                 </div>
-
-                <div className={`p-3 rounded-2xl border text-[11px] space-y-1 ${theme.cardInner}`}>
-                  <p className="font-bold text-teal-700 dark:text-teal-300">💡 วิธีใช้งานฐานข้อมูล Supabase สำหรับโปรเจกต์:</p>
-                  <p className={theme.subText}>1. สมัครใช้งานฟรีที่ <a href="https://supabase.com" target="_blank" rel="noreferrer" className="underline font-semibold text-teal-600">supabase.com</a> แล้วสร้างโปรเจกต์ใหม่</p>
-                  <p className={theme.subText}>2. ไปที่เมนู <strong>SQL Editor</strong> แล้วกดปุ่ม <em>"คัดลอก SQL Script สร้างตาราง"</em> ด้านบนไปรัน เพื่อสร้างตารางอัตโนมัติ</p>
-                  <p className={theme.subText}>3. นำ <strong>Project URL</strong> และ <strong>Anon Key</strong> จากหน้า Project Settings มาวางและกดบันทึก</p>
-                </div>
               </div>
 
-                            {/* Admin access management */}
-              <div className={`p-6 rounded-2xl border ${theme.card} space-y-3`}>
-                <h3 className={`font-bold text-base ${theme.heading}`}>สิทธิ์ผู้ดูแลระบบ (Admin Access)</h3>
-                <p className={`text-xs ${theme.subText}`}>
-                  อีเมล @{ALLOWED_DOMAIN} ที่อยู่ในรายการนี้จะเข้าหน้าเจ้าหน้าที่ได้ ส่วนอีเมลอื่นของมหาวิทยาลัยจะเข้าพอร์ทัลนักศึกษา/บุคลากร
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {getVisibleAdminEmails().map(e => (
-                    <span key={e} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 flex items-center gap-2">
-                      {e}
-                      {adminEmails.includes(e) && (
-                        <button onClick={() => handleRemoveAdminEmail(e)} className="text-rose-500 hover:text-rose-700"><X size={12} /></button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    value={adminEmailInput}
-                    onChange={e => setAdminEmailInput(e.target.value)}
-                    placeholder={'เช่น nurse01@' + ALLOWED_DOMAIN}
-                    className={`flex-1 px-3 py-2 rounded-xl border text-xs ${theme.inputBg}`}
-                  />
-                  <button onClick={handleAddAdminEmail} className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700">เพิ่มผู้ดูแล</button>
-                </div>
-                <p className={`text-[11px] ${theme.subText}`}>รายการที่เพิ่มจะบันทึกในเบราว์เซอร์นี้ หากต้องการให้ใช้ได้ทุกเครื่อง ให้กำหนดตัวแปร VITE_ADMIN_EMAILS (คั่นด้วยเครื่องหมายจุลภาค) ใน Vercel</p>
-              </div>
-
-              {/* Local Storage Database Management Card */}
-              <div className={`p-6 rounded-2xl border ${theme.card} space-y-4`}>
-                <h3 className={`font-bold text-base ${theme.heading}`}>จัดการฐานข้อมูลภายในเครื่อง (Local Database Management)</h3>
+              {/* หมวด 4: จัดการฐานข้อมูลภายในเครื่อง */}
+              <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card} space-y-4`}>
+                <h3 className={`font-bold text-sm sm:text-base ${theme.heading}`}>จัดการฐานข้อมูลภายในเครื่อง (Local Database Management)</h3>
                 <p className={`text-xs ${theme.subText}`}>ระบบจัดเก็บข้อมูลใน Local Storage Database ของเบราว์เซอร์อย่างถาวร</p>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <button
                     onClick={handleResetAllToZero}
                     className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 text-left space-y-1 transition-all"
@@ -2705,16 +3118,6 @@ export default function App() {
                     </div>
                     <p className={`text-[11px] ${theme.subText}`}>นำเข้าชุดข้อมูลทดสอบเพื่อใช้ในการนำเสนอโครงงานและอาจารย์</p>
                   </button>
-                </div>
-              </div>
-
-              {/* Google Apps Script Card */}
-              <div className={`p-6 rounded-2xl border ${theme.card} space-y-4`}>
-                <h3 className={`font-bold text-base ${theme.heading}`}>การเชื่อมต่อ Google Apps Script & Google Sheets</h3>
-                <p className={`text-xs ${theme.subText}`}>เชื่อมโยงข้อมูลกับชีตออนไลน์ของมหาวิทยาลัยกาฬสินธุ์</p>
-                <div className="p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/20 text-xs space-y-2">
-                  <p className="font-bold text-emerald-700 dark:text-emerald-300">✅ สถานะ: เชื่อมต่อ Web App URL สำเร็จ</p>
-                  <p className="font-mono text-[11px] opacity-80">https://script.google.com/macros/s/AKfycbx.../exec</p>
                 </div>
               </div>
 
@@ -2742,16 +3145,16 @@ export default function App() {
       </div>
 
       {/* FLOATING AI ASSISTANT WIDGET (มุมขวาล่างสำหรับถาม AI ขณะซักประวัติ) */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end">
         {/* POPUP CHAT WINDOW */}
         {showAiPopup && (
-          <div className={`mb-3 w-96 max-w-[calc(100vw-2rem)] h-[520px] max-h-[82vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 ${
+          <div className={`mb-3 w-[calc(100vw-1.5rem)] sm:w-96 h-[72vh] sm:h-[520px] max-h-[82vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 ${
             darkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100 shadow-teal-950/40' : 'bg-white/95 border-slate-200 text-slate-800 shadow-teal-900/10'
           }`}>
             {/* Header */}
-            <div className={`p-4 border-b flex items-center justify-between ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-100 bg-slate-50/80'}`}>
+            <div className={`p-3.5 sm:p-4 border-b flex items-center justify-between ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-100 bg-slate-50/80'}`}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 text-white flex items-center justify-center shadow-md shadow-teal-600/30">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-sky-500 text-white flex items-center justify-center shadow-md shadow-teal-600/30 shrink-0">
                   <Bot size={20} />
                 </div>
                 <div>
@@ -2765,15 +3168,15 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowAiPopup(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
                 title="ปิดหน้าต่าง AI"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar text-xs">
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 custom-scrollbar text-xs">
               {popupMessages.map((m, idx) => (
                 <div key={idx} className={`flex gap-2.5 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {m.role === 'ai' && (
@@ -2815,7 +3218,7 @@ export default function App() {
                   key={q}
                   type="button"
                   onClick={() => sendPopupMessage(q)}
-                  className="whitespace-nowrap text-[10px] px-2.5 py-1 rounded-full border border-teal-500/30 bg-teal-500/5 text-teal-700 dark:text-teal-300 hover:bg-teal-500/15 transition-all"
+                  className="whitespace-nowrap text-[10px] px-2.5 py-1.5 rounded-full border border-teal-500/30 bg-teal-500/5 text-teal-700 dark:text-teal-300 hover:bg-teal-500/15 transition-all"
                 >
                   + {q}
                 </button>
@@ -2835,15 +3238,15 @@ export default function App() {
                     sendPopupMessage(popupInput);
                   }
                 }}
-                className={`flex-1 px-3 py-2 text-xs rounded-xl border focus:outline-none focus:border-teal-500 ${theme.inputBg}`}
+                className={`flex-1 min-w-0 min-h-[40px] px-3 py-2 text-xs rounded-xl border focus:outline-none focus:border-teal-500 ${theme.inputBg}`}
               />
               <button
                 type="button"
                 onClick={() => sendPopupMessage(popupInput)}
                 disabled={!popupInput.trim() || popupTyping}
-                className="p-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white transition-all shadow-md shadow-teal-600/30"
+                className="w-10 h-10 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-all shadow-md shadow-teal-600/30"
               >
-                <Send size={14} />
+                <Send size={15} />
               </button>
             </div>
           </div>
@@ -2853,7 +3256,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setShowAiPopup(!showAiPopup)}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-full text-white font-bold text-xs shadow-2xl transition-all hover:scale-105 active:scale-95 group ${
+          className={`min-h-[44px] flex items-center gap-2 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-full text-white font-bold text-xs shadow-2xl transition-all hover:scale-105 active:scale-95 group ${
             showAiPopup
               ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700 shadow-slate-900/50'
               : 'bg-gradient-to-r from-teal-600 to-sky-500 hover:brightness-110 shadow-teal-600/40 ring-4 ring-teal-500/20'
@@ -2866,11 +3269,111 @@ export default function App() {
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-300 animate-ping" />
             )}
           </div>
-          <span>{showAiPopup ? 'ปิดหน้าต่าง AI' : 'AI ซักถามผู้ป่วย'}</span>
+          <span>{showAiPopup ? 'ปิด AI' : 'AI ผู้ช่วย'}</span>
         </button>
       </div>
 
       {/* MODALS */}
+      {/* 0. Patient Detail Modal (ดูรายละเอียดผู้ป่วย) */}
+      {detailStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in-50">
+          <div className={`max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 rounded-3xl border shadow-2xl relative space-y-4 ${theme.modalBg}`}>
+            <button onClick={() => setDetailStudent(null)} className="absolute top-4 right-4 w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600">
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 pr-8">
+              <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center text-lg font-black shrink-0">
+                {(detailStudent.name || 'U').charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <h3 className={`font-bold text-base truncate ${theme.heading}`}>{detailStudent.name}</h3>
+                <p className={`text-xs font-mono ${theme.subText}`}>{detailStudent.id} • {detailStudent.role || 'นักศึกษา'}</p>
+              </div>
+            </div>
+
+            <div className={`p-3.5 rounded-2xl border text-xs grid grid-cols-2 gap-3 ${theme.cardInner}`}>
+              <div>
+                <p className={`text-[10px] ${theme.subText}`}>คณะ / หน่วยงาน</p>
+                <p className="font-semibold mt-0.5">{detailStudent.faculty || '-'}</p>
+              </div>
+              <div>
+                <p className={`text-[10px] ${theme.subText}`}>สาขาวิชา / ฝ่าย</p>
+                <p className="font-semibold mt-0.5">{detailStudent.department || '-'}</p>
+              </div>
+              <div>
+                <p className={`text-[10px] ${theme.subText}`}>กรุ๊ปเลือด</p>
+                <p className="font-mono font-bold mt-0.5">{detailStudent.blood || 'ไม่ระบุ'}</p>
+              </div>
+              <div>
+                <p className={`text-[10px] ${theme.subText}`}>เบอร์โทรศัพท์</p>
+                <p className="font-mono mt-0.5">{detailStudent.phone || '-'}</p>
+              </div>
+            </div>
+
+            <div className={`p-3.5 rounded-2xl border text-xs space-y-2 ${detailStudent.allergies && detailStudent.allergies.length > 0 ? 'border-rose-500/30 bg-rose-500/5' : theme.cardInner}`}>
+              <p className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                <ShieldAlert size={15} /> ประวัติการแพ้ยา
+              </p>
+              {detailStudent.allergies && detailStudent.allergies.length > 0 ? (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detailStudent.allergies.map((alg: string, i: number) => (
+                      <span key={i} className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-xs">
+                        {alg}
+                      </span>
+                    ))}
+                  </div>
+                  {detailStudent.allergyReaction && (
+                    <p className={theme.subText}>อาการเมื่อแพ้: <strong>{detailStudent.allergyReaction}</strong></p>
+                  )}
+                </>
+              ) : (
+                <p className="text-emerald-600 dark:text-emerald-400 font-semibold">ไม่มีประวัติการแพ้ยาในระบบ</p>
+              )}
+            </div>
+
+            {/* ประวัติการเข้ารับบริการของคนนี้ */}
+            <div className="space-y-2 text-xs">
+              <p className={`font-bold ${theme.heading}`}>
+                ประวัติการรับบริการ ({visits.filter(v => (v.patientId || v.studentId) === detailStudent.id).length} ครั้ง)
+              </p>
+              <div className="space-y-2 max-h-44 overflow-y-auto">
+                {visits.filter(v => (v.patientId || v.studentId) === detailStudent.id).length === 0 ? (
+                  <p className={theme.subText}>ยังไม่มีประวัติการเข้ารับบริการ</p>
+                ) : (
+                  visits.filter(v => (v.patientId || v.studentId) === detailStudent.id).map(v => (
+                    <div key={v.id} className={`p-2.5 rounded-xl border ${theme.cardInner}`}>
+                      <div className="flex justify-between font-semibold">
+                        <span>{v.symptom}</span>
+                        <span className="font-mono text-[11px]">{v.time}</span>
+                      </div>
+                      <p className={`text-[11px] mt-0.5 ${theme.subText}`}>
+                        ยา: {(v.meds || []).join(', ') || '-'} • {v.status}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                onClick={() => { const s = detailStudent; setDetailStudent(null); setAllergyModalStudent(s); }}
+                className="flex-1 min-h-[42px] px-4 py-2 rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500/10"
+              >
+                + เพิ่มประวัติแพ้ยา
+              </button>
+              <button
+                onClick={() => { const s = detailStudent; setDetailStudent(null); autoFillPatient(s); setActiveTab('visit-record'); }}
+                className="flex-1 min-h-[42px] px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700"
+              >
+                บันทึกการรักษาผู้ป่วยนี้
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 1. Patient Directory Search Modal (แทนการสแกน QR) */}
       {showPatientSearchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in-50">
@@ -3161,3 +3664,4 @@ export default function App() {
     </div>
   );
 }
+

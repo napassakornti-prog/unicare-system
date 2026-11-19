@@ -65,19 +65,19 @@ export default function Reports({ data, theme, addToast }: { data: any; theme: a
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className={`p-6 rounded-2xl border ${theme.card} flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+      <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card} flex flex-col md:flex-row md:items-center justify-between gap-4`}>
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400"><BarChart3 size={22} /></div>
+          <div className="p-2.5 sm:p-3 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0"><BarChart3 size={22} /></div>
           <div>
-            <h3 className={`font-bold text-lg ${theme.heading}`}>รายงาน & สถิติห้องพยาบาล</h3>
+            <h3 className={`font-bold text-base sm:text-lg ${theme.heading}`}>รายงาน & สถิติห้องพยาบาล</h3>
             <p className={`text-xs ${theme.subText}`}>คำนวณจากข้อมูลการเข้ารับบริการจริงในระบบ (อัปเดตทันทีเมื่อมีการบันทึก)</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={exportCsv} className="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-md flex items-center gap-1.5">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={exportCsv} className="flex-1 sm:flex-initial min-h-[42px] px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 shadow-md flex items-center justify-center gap-1.5">
             <Download size={14} /> ส่งออก Excel (CSV)
           </button>
-          <button onClick={() => window.print()} className="px-4 py-2 rounded-xl border border-teal-500/30 text-teal-700 dark:text-teal-300 font-bold text-xs hover:bg-teal-500/10 flex items-center gap-1.5">
+          <button onClick={() => window.print()} className="flex-1 sm:flex-initial min-h-[42px] px-4 py-2 rounded-xl border border-teal-500/30 text-teal-700 dark:text-teal-300 font-bold text-xs hover:bg-teal-500/10 flex items-center justify-center gap-1.5">
             <Printer size={14} /> พิมพ์ / PDF
           </button>
         </div>
