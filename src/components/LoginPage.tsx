@@ -117,6 +117,11 @@ function Field({
   label: string; icon: any; type?: string; value: string; onChange: (v: string) => void;
   placeholder?: string; autoComplete?: string; error?: string; right?: React.ReactNode; helper?: string;
 }) {
+  const [readOnly, setReadOnly] = useState(true);
+  const unlock = () => {
+    if (readOnly) setReadOnly(false);
+  };
+
   return (
     <label className="block">
       <span className="text-[11px] font-bold text-slate-500">{label}</span>
@@ -126,6 +131,11 @@ function Field({
           type={type}
           value={value}
           onChange={e => onChange(e.target.value)}
+          onFocus={unlock}
+          onClick={unlock}
+          onMouseDown={unlock}
+          onTouchStart={unlock}
+          readOnly={readOnly}
           placeholder={placeholder}
           autoComplete={autoComplete}
           className="flex-1 min-w-0 py-3 text-sm bg-transparent outline-none text-slate-800 placeholder-slate-400"
@@ -311,7 +321,7 @@ export default function LoginPage({
             <h2 className="text-2xl font-black text-teal-900">{title}</h2>
             <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
 
-            <form onSubmit={submit} className="mt-5 space-y-3.5" noValidate>
+            <form onSubmit={submit} className="mt-5 space-y-3.5" noValidate autoComplete="off">
               {mode !== 'forgot' && (
                 <RoleSelector
                   value={role}
