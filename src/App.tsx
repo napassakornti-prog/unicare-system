@@ -1002,15 +1002,15 @@ export default function App() {
 
   const theme = {
     bg: darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800',
-    sidebar: darkMode ? 'bg-slate-900/90 border-slate-800/80' : 'bg-white border-slate-200/80 shadow-sm',
-    sidebarHeader: darkMode ? 'border-slate-800/80' : 'border-slate-200/80',
-    header: darkMode ? 'bg-slate-900/40 border-slate-800/80' : 'bg-white/80 border-slate-200/80 shadow-sm',
-    card: darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/80 shadow-sm shadow-slate-200/40',
-    cardInner: darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200/80',
-    subText: darkMode ? 'text-slate-400' : 'text-slate-500',
+    sidebar: darkMode ? 'bg-slate-900/90 border-slate-800/80' : 'bg-white border-slate-200 shadow-sm',
+    sidebarHeader: darkMode ? 'border-slate-800/80' : 'border-slate-200',
+    header: darkMode ? 'bg-slate-900/40 border-slate-800/80' : 'bg-white/80 border-slate-200 shadow-sm',
+    card: darkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-sm shadow-slate-200/40',
+    cardInner: darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50/80 border-slate-200',
+    subText: darkMode ? 'text-slate-400' : 'text-slate-600',
     heading: darkMode ? 'text-white' : 'text-slate-900',
     inputBg: darkMode ? 'bg-slate-900 border-slate-800 text-slate-200 placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400',
-    tableHeader: darkMode ? 'border-slate-800 text-slate-400' : 'border-slate-200 text-slate-500 bg-slate-50/50',
+    tableHeader: darkMode ? 'border-slate-800 text-slate-300 bg-slate-900/90 font-bold' : 'border-slate-200 text-slate-700 bg-slate-100/90 font-bold',
     modalBg: darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-2xl',
   };
 
@@ -1561,14 +1561,14 @@ export default function App() {
                 <div className={`p-4 rounded-2xl border transition-all ${theme.card}`}>
                   <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${theme.subText}`}>ผู้รับบริการวันนี้</p>
-                      <h3 className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${theme.heading}`}>{visits.length} <span className={`text-xs font-normal ${theme.subText}`}>ครั้ง</span></h3>
+                      <p className={`text-[11px] font-bold uppercase tracking-wider ${theme.subText}`}>ผู้รับบริการวันนี้</p>
+                      <h3 className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${theme.heading}`}>{visits.length} <span className={`text-xs font-semibold ${theme.subText}`}>ครั้ง</span></h3>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-teal-100 text-teal-800 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800 shrink-0">
                       <Users size={18} />
                     </div>
                   </div>
-                  <div className="mt-2.5 flex items-center gap-2 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                  <div className="mt-2.5 flex items-center gap-2 text-[11px] text-rose-700 dark:text-rose-400 font-bold">
                     <span>ฉุกเฉิน {visits.filter(v => v.triage === 'ฉุกเฉิน').length} • ด่วน {visits.filter(v => v.triage === 'ด่วน').length} ราย</span>
                   </div>
                 </div>
@@ -1580,14 +1580,14 @@ export default function App() {
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${theme.subText}`}>เตียงพักฟื้นว่าง</p>
-                      <h3 className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${theme.heading}`}>{availableBedsCount} <span className={`text-xs font-normal ${theme.subText}`}>/ {beds.length} เตียง</span></h3>
+                      <p className={`text-[11px] font-bold uppercase tracking-wider ${theme.subText}`}>เตียงพักฟื้นว่าง</p>
+                      <h3 className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${theme.heading}`}>{availableBedsCount} <span className={`text-xs font-semibold ${theme.subText}`}>/ {beds.length} เตียง</span></h3>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 shrink-0">
                       <Bed size={18} />
                     </div>
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-teal-600 dark:text-teal-400 font-medium">
+                  <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-teal-700 dark:text-teal-400 font-bold">
                     <span>{beds.filter(b => b.status === 'occupied').length} เตียงกำลังใช้งาน</span>
                     <ChevronRight size={13} />
                   </div>
@@ -1600,14 +1600,14 @@ export default function App() {
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${theme.subText}`}>ยาใกล้หมดสต็อก</p>
-                      <h3 className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${theme.heading}`}>{lowStockMeds.length} <span className={`text-xs font-normal ${theme.subText}`}>รายการ</span></h3>
+                      <p className={`text-[11px] font-bold uppercase tracking-wider ${theme.subText}`}>ยาใกล้หมดสต็อก</p>
+                      <h3 className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${theme.heading}`}>{lowStockMeds.length} <span className={`text-xs font-semibold ${theme.subText}`}>รายการ</span></h3>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 shrink-0">
                       <AlertTriangle size={18} />
                     </div>
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-amber-700 dark:text-amber-400 font-bold">
                     <span className="truncate">{lowStockMeds.length ? `สั่งเพิ่ม: ${lowStockMeds.map(m => m.name.split(' ')[0]).join(', ')}` : 'สต็อกทุกรายการปกติ'}</span>
                     <ChevronRight size={13} className="shrink-0" />
                   </div>
@@ -1620,16 +1620,16 @@ export default function App() {
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${theme.subText}`}>ผู้มีประวัติแพ้ยา</p>
+                      <p className={`text-[11px] font-bold uppercase tracking-wider ${theme.subText}`}>ผู้มีประวัติแพ้ยา</p>
                       <h3 className={`text-2xl sm:text-3xl font-black mt-1 tracking-tight ${theme.heading}`}>
-                        {allergyStudents.length} <span className={`text-xs font-normal ${theme.subText}`}>คน</span>
+                        {allergyStudents.length} <span className={`text-xs font-semibold ${theme.subText}`}>คน</span>
                       </h3>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 shrink-0">
                       <ShieldAlert size={18} />
                     </div>
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                  <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px] text-rose-700 dark:text-rose-400 font-bold">
                     <span>เฝ้าระวังความปลอดภัยด้านยา</span>
                     <ChevronRight size={13} className="shrink-0" />
                   </div>
@@ -1646,7 +1646,7 @@ export default function App() {
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className={`font-bold text-sm sm:text-base ${theme.heading}`}>รายการผู้รับบริการล่าสุด</h3>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-100 text-teal-800 border border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800">
                               {visits.length} รายการ
                             </span>
                           </div>
@@ -1656,13 +1656,13 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => { resetVisitForm(); setActiveTab('visit-record'); }}
-                          className="min-h-[38px] px-3 py-1.5 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 flex items-center gap-1"
+                          className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 flex items-center gap-1 shadow-sm"
                         >
                           <Plus size={14} /> บันทึกใหม่
                         </button>
                         <button
                           onClick={() => setActiveTab('visit-record')}
-                          className="min-h-[38px] px-3 py-1.5 rounded-xl bg-teal-500/10 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-teal-500/20 flex items-center gap-1"
+                          className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center gap-1"
                         >
                           ดูทั้งหมด <ChevronRight size={14} />
                         </button>
@@ -1679,76 +1679,94 @@ export default function App() {
                         {/* Mobile Visit Cards (< 768px) */}
                         <div className="md:hidden space-y-2.5">
                           {visits.slice(0, 6).map((v) => (
-                            <div key={v.id} className={`p-3.5 rounded-xl border text-xs space-y-2 ${theme.cardInner}`}>
+                            <div key={v.id} className={`p-3.5 rounded-xl border text-xs space-y-2 shadow-sm ${theme.cardInner}`}>
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                   <p className={`font-bold text-sm truncate ${theme.heading}`}>{v.studentName}</p>
-                                  <p className={`text-[11px] font-mono ${theme.subText}`}>{v.id} • {v.time} • {v.patientRole || 'นักศึกษา'}</p>
+                                  <p className="text-[11px] font-mono font-medium text-slate-600 dark:text-slate-400">{v.id} • {v.time} • {v.patientRole || 'นักศึกษา'}</p>
                                 </div>
-                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                                  v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
-                                  v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                                  'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
+                                  v.triage === 'ฉุกเฉิน' ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800' :
+                                  v.triage === 'ด่วน' ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800' :
+                                  'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
                                 }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    v.triage === 'ฉุกเฉิน' ? 'bg-rose-600' : v.triage === 'ด่วน' ? 'bg-amber-600' : 'bg-emerald-600'
+                                  }`} />
                                   {v.triage}
                                 </span>
                               </div>
-                              <p className={`text-[11px] ${theme.subText}`}>{v.faculty}{v.department ? ` • ${v.department}` : ''}</p>
+                              <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">{v.faculty}{v.department ? ` • ${v.department}` : ''}</p>
                               <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200 dark:border-slate-800">
-                                <span className="font-medium truncate">อาการ: <strong>{v.symptom}</strong></span>
-                                <span className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold">{v.status}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">อาการ: <strong>{v.symptom}</strong></span>
+                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                                  v.status.includes('จำหน่าย')
+                                    ? 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                    : 'bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800'
+                                }`}>{v.status}</span>
                               </div>
                             </div>
                           ))}
                         </div>
 
                         {/* Desktop Table (>= 768px) - 5 Balanced Columns */}
-                        <div className="hidden md:block overflow-x-auto">
+                        <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
                               <tr className={`border-b ${theme.tableHeader}`}>
-                                <th className="py-3 px-3 font-semibold whitespace-nowrap">รหัส / เวลา</th>
-                                <th className="py-3 px-3 font-semibold">ผู้รับบริการ / คณะ</th>
-                                <th className="py-3 px-3 font-semibold">อาการสำคัญ</th>
-                                <th className="py-3 px-3 font-semibold whitespace-nowrap">Triage</th>
-                                <th className="py-3 px-3 font-semibold text-right whitespace-nowrap">สถานะ</th>
+                                <th className="py-3 px-3.5 font-bold whitespace-nowrap">รหัส / เวลา</th>
+                                <th className="py-3 px-3.5 font-bold">ผู้รับบริการ / คณะ</th>
+                                <th className="py-3 px-3.5 font-bold">อาการสำคัญ</th>
+                                <th className="py-3 px-3.5 font-bold whitespace-nowrap">Triage</th>
+                                <th className="py-3 px-3.5 font-bold text-right whitespace-nowrap">สถานะ</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                               {visits.slice(0, 8).map((v) => (
-                                <tr key={v.id} className="hover:bg-slate-500/5 transition-colors">
-                                  <td className="py-3 px-3 whitespace-nowrap">
-                                    <p className="font-mono font-bold text-teal-600 dark:text-teal-400">{v.id}</p>
-                                    <p className={`text-[11px] font-mono ${theme.subText}`}>{v.time}</p>
+                                <tr key={v.id} className="hover:bg-teal-50/40 dark:hover:bg-slate-800/50 transition-colors">
+                                  <td className="py-3 px-3.5 whitespace-nowrap">
+                                    <p className="font-mono font-bold text-teal-700 dark:text-teal-400">{v.id}</p>
+                                    <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 font-medium">{v.time}</p>
                                   </td>
-                                  <td className="py-3 px-3">
+                                  <td className="py-3 px-3.5">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className={`font-bold ${theme.heading}`}>{v.studentName}</span>
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800">
+                                      <span className={`font-bold text-sm ${theme.heading}`}>{v.studentName}</span>
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                                         {v.patientRole || 'นักศึกษา'}
                                       </span>
                                     </div>
-                                    <p className={`text-[11px] mt-0.5 ${theme.subText}`}>
+                                    <p className="text-[11px] mt-0.5 text-slate-600 dark:text-slate-400 font-medium">
                                       {v.faculty}{v.department ? ` • ${v.department}` : ''}
                                     </p>
                                   </td>
-                                  <td className="py-3 px-3 max-w-xs">
-                                    <p className="font-medium truncate">{v.symptom}</p>
+                                  <td className="py-3 px-3.5 max-w-xs">
+                                    <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{v.symptom}</p>
                                     {v.meds && v.meds.length > 0 && (
-                                      <p className={`text-[11px] truncate ${theme.subText}`}>ยา: {v.meds.join(', ')}</p>
+                                      <p className="text-[11px] truncate text-slate-600 dark:text-slate-400 font-medium">
+                                        ยา: <span className="text-teal-700 dark:text-teal-300 font-semibold">{v.meds.join(', ')}</span>
+                                      </p>
                                     )}
                                   </td>
-                                  <td className="py-3 px-3 whitespace-nowrap">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                                      v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' :
-                                      v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                                      'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                  <td className="py-3 px-3.5 whitespace-nowrap">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                                      v.triage === 'ฉุกเฉิน' ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800' :
+                                      v.triage === 'ด่วน' ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800' :
+                                      'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
                                     }`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${
+                                        v.triage === 'ฉุกเฉิน' ? 'bg-rose-600' : v.triage === 'ด่วน' ? 'bg-amber-600' : 'bg-emerald-600'
+                                      }`} />
                                       {v.triage}
                                     </span>
                                   </td>
-                                  <td className="py-3 px-3 text-right font-semibold text-teal-600 dark:text-teal-400 whitespace-nowrap">
-                                    {v.status}
+                                  <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${
+                                      v.status.includes('จำหน่าย')
+                                        ? 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                        : 'bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800'
+                                    }`}>
+                                      {v.status}
+                                    </span>
                                   </td>
                                 </tr>
                               ))}
@@ -1767,15 +1785,17 @@ export default function App() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <h3 className={`font-bold text-sm truncate ${theme.heading}`}>ผังเตียงพักฟื้น</h3>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                          availableBedsCount > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-600'
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
+                          availableBedsCount > 0 
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800' 
+                            : 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
                         }`}>
                           ว่าง {availableBedsCount}/{beds.length}
                         </span>
                       </div>
                       <button
                         onClick={() => setBedManagementModal(true)}
-                        className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-0.5 shrink-0"
+                        className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline flex items-center gap-0.5 shrink-0"
                       >
                         จัดการเตียง <ChevronRight size={13} />
                       </button>
@@ -1787,35 +1807,39 @@ export default function App() {
                         return (
                           <div
                             key={b.id}
-                            className={`p-3 rounded-xl border text-xs transition-all flex flex-col justify-between ${
-                              occupied ? 'bg-rose-500/5 border-rose-500/30' : 'bg-emerald-500/5 border-emerald-500/30'
+                            className={`p-3 rounded-xl border text-xs transition-all flex flex-col justify-between shadow-xs ${
+                              occupied 
+                                ? 'bg-rose-50/90 border-rose-200 text-rose-950 dark:bg-rose-950/30 dark:border-rose-800/80 dark:text-rose-200' 
+                                : 'bg-emerald-50/80 border-emerald-200 text-emerald-950 dark:bg-emerald-950/30 dark:border-emerald-800/80 dark:text-emerald-200'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-1.5">
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${occupied ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-                                <span className={`font-bold truncate ${theme.heading}`}>{b.name.replace(/\s*\(.*\)/, '')}</span>
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${occupied ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                                <span className="font-bold truncate text-slate-900 dark:text-white">{b.name.replace(/\s*\(.*\)/, '')}</span>
                               </div>
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                                occupied ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                                occupied 
+                                  ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/60 dark:text-rose-200 dark:border-rose-700' 
+                                  : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200 dark:border-emerald-700'
                               }`}>
                                 {occupied ? 'ไม่ว่าง' : 'ว่าง'}
                               </span>
                             </div>
                             {occupied ? (
-                              <div className="mt-2 pt-2 border-t border-rose-500/15 space-y-1.5">
-                                <p className="font-bold text-rose-600 dark:text-rose-400 truncate text-[11px]">{b.studentName}</p>
-                                <p className={`truncate text-[10px] ${theme.subText}`}>{b.symptom || '-'}</p>
+                              <div className="mt-2 pt-2 border-t border-rose-200 dark:border-rose-900/60 space-y-1.5">
+                                <p className="font-bold text-rose-800 dark:text-rose-300 truncate text-[11px]">{b.studentName}</p>
+                                <p className="truncate text-[10px] text-slate-600 dark:text-slate-400 font-medium">{b.symptom || '-'}</p>
                                 <button
                                   type="button"
                                   onClick={() => handleDischarge(b.id)}
-                                  className="w-full py-1 px-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] transition-all"
+                                  className="w-full py-1 px-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] transition-all shadow-xs"
                                 >
                                   จำหน่าย
                                 </button>
                               </div>
                             ) : (
-                              <p className={`mt-2 text-[10px] truncate ${theme.subText}`}>
+                              <p className="mt-2 text-[10px] truncate text-slate-600 dark:text-slate-400 font-medium">
                                 {b.name.match(/\(([^)]+)\)/)?.[1] || 'พร้อมรับผู้ป่วย'}
                               </p>
                             )}
@@ -1829,20 +1853,20 @@ export default function App() {
                   <div className={`rounded-2xl border p-4 space-y-3 ${theme.card}`}>
                     <div className="flex items-center justify-between gap-2">
                       <h3 className={`font-bold text-sm flex items-center gap-1.5 ${theme.heading}`}>
-                        <ShieldAlert size={16} className="text-rose-500 shrink-0" />
+                        <ShieldAlert size={16} className="text-rose-600 shrink-0" />
                         เฝ้าระวังกลุ่มเสี่ยง & ยา
                       </h3>
                       <button
                         onClick={() => setActiveTab('students')}
-                        className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-0.5 shrink-0"
+                        className="text-xs font-bold text-teal-700 dark:text-teal-400 hover:underline flex items-center gap-0.5 shrink-0"
                       >
                         ทะเบียนแพ้ยา <ChevronRight size={13} />
                       </button>
                     </div>
 
                     {allergyStudents.length === 0 && lowStockMeds.length === 0 ? (
-                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-2">
-                        <CheckCircle2 size={16} className="shrink-0" />
+                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-2">
+                        <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
                         <span>ไม่มีรายการเฝ้าระวังเร่งด่วน</span>
                       </div>
                     ) : (
@@ -1852,16 +1876,16 @@ export default function App() {
                             key={s.id}
                             type="button"
                             onClick={() => setDetailStudent(s)}
-                            className={`w-full p-2.5 rounded-xl border text-left transition-all hover:border-rose-500/40 space-y-1.5 ${theme.cardInner}`}
+                            className={`w-full p-2.5 rounded-xl border text-left transition-all hover:border-rose-400 space-y-1.5 shadow-xs ${theme.cardInner}`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className={`font-bold text-xs truncate ${theme.heading}`}>{s.name}</span>
-                              <span className={`text-[10px] font-mono shrink-0 ${theme.subText}`}>{s.id}</span>
+                              <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0">{s.id}</span>
                             </div>
-                            {s.faculty && <p className={`text-[10px] truncate ${theme.subText}`}>{s.faculty}</p>}
+                            {s.faculty && <p className="text-[10px] truncate text-slate-600 dark:text-slate-400 font-medium">{s.faculty}</p>}
                             <div className="flex flex-wrap gap-1">
                               {(s.allergies || []).map((alg: string, i: number) => (
-                                <span key={i} className="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/25 text-[10px] font-bold">
+                                <span key={i} className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 text-[10px] font-bold">
                                   แพ้: {alg}
                                 </span>
                               ))}
@@ -2817,49 +2841,60 @@ export default function App() {
                     </div>
 
                     {/* Desktop Table (>= 768px) */}
-                    <div className="hidden md:block overflow-x-auto max-h-96">
+                    <div className="hidden md:block overflow-x-auto max-h-96 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
                           <tr className={`border-b ${theme.tableHeader}`}>
-                            <th className="py-2.5 px-3 font-semibold">รหัส</th>
-                            <th className="py-2.5 px-3 font-semibold">เวลา</th>
-                            <th className="py-2.5 px-3 font-semibold">ประเภท</th>
-                            <th className="py-2.5 px-3 font-semibold">ผู้รับบริการ</th>
-                            <th className="py-2.5 px-3 font-semibold">คณะ / สาขาวิชา</th>
-                            <th className="py-2.5 px-3 font-semibold">อาการสำคัญ</th>
-                            <th className="py-2.5 px-3 font-semibold">Triage</th>
-                            <th className="py-2.5 px-3 font-semibold">เตียง</th>
-                            <th className="py-2.5 px-3 font-semibold">ยาที่จ่าย</th>
-                            <th className="py-2.5 px-3 font-semibold">สถานะ</th>
+                            <th className="py-2.5 px-3 font-bold">รหัส</th>
+                            <th className="py-2.5 px-3 font-bold">เวลา</th>
+                            <th className="py-2.5 px-3 font-bold">ประเภท</th>
+                            <th className="py-2.5 px-3 font-bold">ผู้รับบริการ</th>
+                            <th className="py-2.5 px-3 font-bold">คณะ / สาขาวิชา</th>
+                            <th className="py-2.5 px-3 font-bold">อาการสำคัญ</th>
+                            <th className="py-2.5 px-3 font-bold">Triage</th>
+                            <th className="py-2.5 px-3 font-bold">เตียง</th>
+                            <th className="py-2.5 px-3 font-bold">ยาที่จ่าย</th>
+                            <th className="py-2.5 px-3 font-bold">สถานะ</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                           {visits.map(v => (
-                            <tr key={v.id} className="hover:bg-slate-500/5">
-                              <td className="py-2.5 px-3 font-mono font-bold text-teal-600 dark:text-teal-400">{v.id}</td>
-                              <td className="py-2.5 px-3 font-mono">{v.time}</td>
+                            <tr key={v.id} className="hover:bg-teal-50/40 dark:hover:bg-slate-800/50 transition-colors">
+                              <td className="py-2.5 px-3 font-mono font-bold text-teal-700 dark:text-teal-400">{v.id}</td>
+                              <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400 font-medium">{v.time}</td>
                               <td className="py-2.5 px-3">
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                                   {v.patientRole || 'นักศึกษา'}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 font-semibold">{v.studentName}</td>
-                              <td className="py-2.5 px-3 text-slate-500">{v.faculty} {v.department ? `(${v.department})` : ''}</td>
-                              <td className="py-2.5 px-3 max-w-xs truncate">{v.symptom}</td>
-                              <td className="py-2.5 px-3">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                  v.triage === 'ฉุกเฉิน' ? 'bg-rose-500/10 text-rose-600' :
-                                  v.triage === 'ด่วน' ? 'bg-amber-500/10 text-amber-600' :
-                                  'bg-emerald-500/10 text-emerald-600'
+                              <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{v.studentName}</td>
+                              <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-medium">{v.faculty} {v.department ? `(${v.department})` : ''}</td>
+                              <td className="py-2.5 px-3 max-w-xs truncate font-semibold text-slate-800 dark:text-slate-200">{v.symptom}</td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  v.triage === 'ฉุกเฉิน' ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800' :
+                                  v.triage === 'ด่วน' ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800' :
+                                  'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
                                 }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    v.triage === 'ฉุกเฉิน' ? 'bg-rose-600' : v.triage === 'ด่วน' ? 'bg-amber-600' : 'bg-emerald-600'
+                                  }`} />
                                   {v.triage}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 font-medium text-teal-600 dark:text-teal-400">
+                              <td className="py-2.5 px-3 font-semibold text-teal-700 dark:text-teal-400">
                                 {v.bedId ? beds.find(b => b.id === v.bedId)?.name || v.bedId : '-'}
                               </td>
-                              <td className="py-2.5 px-3">{(v.meds || []).join(', ') || '-'}</td>
-                              <td className="py-2.5 px-3 font-medium">{v.status}</td>
+                              <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">{(v.meds || []).join(', ') || '-'}</td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                                  v.status.includes('จำหน่าย')
+                                    ? 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                    : 'bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800'
+                                }`}>
+                                  {v.status}
+                                </span>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
