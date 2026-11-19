@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Download, Printer, Sparkles } from 'lucide-react';
+import { BarChart3, Download, Printer, Sparkles, Users, Siren, Building2, Pill } from 'lucide-react';
 import { computeStats, answerQuestion } from '../ai';
 
 function BarList({ title, rows, color, theme }: { title: string; rows: [string, number][]; color: string; theme: any }) {
@@ -64,7 +64,7 @@ export default function Reports({ data, theme, addToast }: { data: any; theme: a
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-[1440px] mx-auto space-y-5">
       <div className={`p-4 sm:p-6 rounded-2xl border ${theme.card} flex flex-col md:flex-row md:items-center justify-between gap-4`}>
         <div className="flex items-center gap-3">
           <div className="p-2.5 sm:p-3 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0"><BarChart3 size={22} /></div>
@@ -86,16 +86,28 @@ export default function Reports({ data, theme, addToast }: { data: any; theme: a
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'ผู้รับบริการทั้งหมด', value: stats.total },
-          { label: 'กรณีฉุกเฉิน', value: visits.filter((v: any) => v.triage === 'ฉุกเฉิน').length },
-          { label: 'ส่งต่อโรงพยาบาล', value: visits.filter((v: any) => v.status.includes('ส่งตัว')).length },
-          { label: 'จำนวนการจ่ายยา', value: visits.reduce((s: number, v: any) => s + (v.meds?.length || 0), 0) },
-        ].map(k => (
-          <div key={k.label} className={`p-4 rounded-2xl border ${theme.card}`}>
-            <p className={`text-[11px] font-semibold ${theme.subText}`}>{k.label}</p>
-            <p className={`text-2xl font-black mt-1 ${theme.heading}`}>{k.value}</p>
-          </div>
-        ))}
+          { label: 'ผู้รับบริการทั้งหมด', value: stats.total, unit: 'ครั้ง', icon: Users, valCls: theme.heading, bgCls: 'bg-teal-500/10 text-teal-600 dark:text-teal-400' },
+          { label: 'กรณีฉุกเฉิน', value: visits.filter((v: any) => v.triage === 'ฉุกเฉิน').length, unit: 'ราย', icon: Siren, valCls: 'text-rose-600 dark:text-rose-400', bgCls: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
+          { label: 'ส่งต่อโรงพยาบาล', value: visits.filter((v: any) => v.status.includes('ส่งตัว')).length, unit: 'ราย', icon: Building2, valCls: 'text-amber-600 dark:text-amber-400', bgCls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+          { label: 'จำนวนการจ่ายยา', value: visits.reduce((s: number, v: any) => s + (v.meds?.length || 0), 0), unit: 'รายการ', icon: Pill, valCls: 'text-sky-600 dark:text-sky-400', bgCls: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' },
+        ].map(k => {
+          const Icon = k.icon;
+          return (
+            <div key={k.label} className={`p-4 rounded-2xl border ${theme.card}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className={`text-[11px] font-semibold ${theme.subText}`}>{k.label}</p>
+                  <p className={`text-2xl font-black mt-1 ${k.valCls}`}>
+                    {k.value} <span className={`text-xs font-normal ${theme.subText}`}>{k.unit}</span>
+                  </p>
+                </div>
+                <div className={`p-2 rounded-xl shrink-0 ${k.bgCls}`}>
+                  <Icon size={18} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* AI Summary */}
