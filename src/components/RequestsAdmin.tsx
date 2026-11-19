@@ -13,17 +13,17 @@ const FILTERS = [
 ];
 
 const typeMeta: Record<string, { label: string; icon: any; cls: string }> = {
-  bed: { label: 'จองเตียง', icon: Bed, cls: 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800' },
-  medicine: { label: 'ขอยา', icon: Pill, cls: 'bg-sky-100 text-sky-800 border border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800' },
-  allergy: { label: 'แจ้งแพ้ยา', icon: ShieldAlert, cls: 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800' },
-  emergency: { label: 'เรียกฉุกเฉิน', icon: Siren, cls: 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800' },
+  bed: { label: 'จองเตียง', icon: Bed, cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+  medicine: { label: 'ขอยา', icon: Pill, cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+  allergy: { label: 'แจ้งแพ้ยา', icon: ShieldAlert, cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+  emergency: { label: 'เรียกฉุกเฉิน', icon: Siren, cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
 };
 
 const chip = (s: string) =>
-  s === REQ_STATUS.APPROVED || s === REQ_STATUS.DONE ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
-  : s === REQ_STATUS.REJECTED ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
-  : s === REQ_STATUS.ACK ? 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800'
-  : 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800';
+  s === REQ_STATUS.APPROVED || s === REQ_STATUS.DONE ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+  : s === REQ_STATUS.REJECTED ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+  : s === REQ_STATUS.ACK ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
 
 const isActiveReq = (r: Req) =>
   r.status === REQ_STATUS.PENDING ||

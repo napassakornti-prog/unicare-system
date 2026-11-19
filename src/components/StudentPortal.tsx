@@ -21,10 +21,10 @@ const typeLabel: Record<string, string> = { bed: 'จองเตียงพั
 const typeIcon: Record<string, any> = { bed: BedDouble, medicine: Pill, allergy: ShieldAlert, emergency: Siren };
 
 const chip = (s: string) => {
-  if (s === REQ_STATUS.APPROVED || s === REQ_STATUS.DONE) return 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800';
-  if (s === REQ_STATUS.REJECTED) return 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800';
-  if (s === REQ_STATUS.ACK) return 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800';
-  return 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800';
+  if (s === REQ_STATUS.APPROVED || s === REQ_STATUS.DONE) return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+  if (s === REQ_STATUS.REJECTED) return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+  if (s === REQ_STATUS.ACK) return 'bg-sky-500/10 text-sky-600 border-sky-500/20';
+  return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
 };
 
 // ขั้นตอนของคำขอแต่ละประเภท
