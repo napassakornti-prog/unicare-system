@@ -139,12 +139,16 @@ export default function RequestsAdmin({
                 key={f.id}
                 onClick={() => setFilter(f.id)}
                 className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
-                  filter === f.id ? 'bg-teal-600 text-white border-teal-600 shadow-sm' : `${theme.cardInner} hover:border-teal-500/50`
+                  filter === f.id 
+                    ? 'bg-teal-50 text-teal-700 border-teal-300 dark:bg-teal-950/70 dark:text-teal-300 dark:border-teal-800 shadow-xs' 
+                    : `${theme.cardInner} hover:border-teal-500/50`
                 }`}
               >
                 <span>{f.label}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                  filter === f.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  filter === f.id 
+                    ? 'bg-teal-200/70 text-teal-800 dark:bg-teal-900/60 dark:text-teal-200' 
+                    : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                 }`}>
                   {filterCount(f.id)}
                 </span>

@@ -58,6 +58,14 @@ const DB_KEYS = {
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -1144,7 +1152,7 @@ export default function App() {
             <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto custom-scrollbar">
               {navGroups.map(group => (
                 <div key={group.title} className="space-y-1">
-                  <p className={`px-3 text-[10px] font-bold uppercase tracking-wider ${theme.subText}`}>{group.title}</p>
+                  <p className={`px-3 text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{group.title}</p>
                   {group.items.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
@@ -1154,19 +1162,23 @@ export default function App() {
                         onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
                         className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                           isActive
-                            ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20'
+                            ? darkMode
+                              ? 'bg-teal-950/70 text-teal-300 border border-teal-800/80 font-bold'
+                              : 'bg-teal-50 text-teal-700 border border-teal-200/90 font-bold shadow-xs'
                             : darkMode
                               ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <Icon size={18} className={isActive ? 'text-white' : ''} />
+                          <Icon size={18} className={isActive ? (darkMode ? 'text-teal-300' : 'text-teal-600 font-bold') : ''} />
                           <span>{item.label}</span>
                         </div>
                         {item.badge !== undefined && item.badge > 0 && (
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            isActive ? 'bg-white text-teal-700' : 'bg-rose-500 text-white'
+                            isActive 
+                              ? darkMode ? 'bg-teal-900/80 text-teal-200 border border-teal-700' : 'bg-teal-200/70 text-teal-800 border border-teal-300'
+                              : 'bg-rose-500 text-white'
                           }`}>
                             {item.badge}
                           </span>
@@ -1241,7 +1253,7 @@ export default function App() {
               {sidebarCollapsed ? (
                 gIdx > 0 && <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
               ) : (
-                <p className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-wider ${theme.subText}`}>{group.title}</p>
+                <p className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{group.title}</p>
               )}
               {group.items.map((item) => {
                 const Icon = item.icon;
@@ -1253,14 +1265,16 @@ export default function App() {
                     title={sidebarCollapsed ? `${item.label}${item.badge ? ` (${item.badge})` : ''}` : undefined}
                     className={`relative w-full flex items-center ${sidebarCollapsed ? 'justify-center px-2 py-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all ${
                       isActive 
-                        ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20' 
+                        ? darkMode
+                          ? 'bg-teal-950/70 text-teal-300 border border-teal-800/80 font-bold'
+                          : 'bg-teal-50 text-teal-700 border border-teal-200/90 font-bold shadow-xs'
                         : darkMode 
                           ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' 
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : ''}`} />
+                      <Icon size={18} className={`shrink-0 ${isActive ? (darkMode ? 'text-teal-300' : 'text-teal-600 font-bold') : ''}`} />
                       {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
                     </div>
                     {item.badge !== undefined && item.badge > 0 && (
@@ -1270,7 +1284,9 @@ export default function App() {
                         </span>
                       ) : (
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                          isActive ? 'bg-white text-teal-700' : 'bg-rose-500 text-white'
+                          isActive 
+                            ? darkMode ? 'bg-teal-900/80 text-teal-200 border border-teal-700' : 'bg-teal-200/70 text-teal-800 border border-teal-300' 
+                            : 'bg-rose-500 text-white'
                         }`}>
                           {item.badge}
                         </span>
@@ -1724,7 +1740,11 @@ export default function App() {
                                   <td className="py-3 px-3">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className={`font-bold ${theme.heading}`}>{v.studentName}</span>
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800">
+                                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                        darkMode 
+                                          ? 'bg-slate-800 text-slate-300 border-slate-700' 
+                                          : 'bg-teal-50 text-teal-700 border-teal-200'
+                                      }`}>
                                         {v.patientRole || 'นักศึกษา'}
                                       </span>
                                     </div>
@@ -2839,7 +2859,11 @@ export default function App() {
                               <td className="py-2.5 px-3 font-mono font-bold text-teal-600 dark:text-teal-400">{v.id}</td>
                               <td className="py-2.5 px-3 font-mono">{v.time}</td>
                               <td className="py-2.5 px-3">
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800">
+                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                  darkMode 
+                                    ? 'bg-slate-800 text-slate-300 border-slate-700' 
+                                    : 'bg-teal-50 text-teal-700 border-teal-200'
+                                }`}>
                                   {v.patientRole || 'นักศึกษา'}
                                 </span>
                               </td>
@@ -3387,7 +3411,11 @@ export default function App() {
                               >
                                 <td className="py-3 px-3 whitespace-nowrap">
                                   <p className="font-mono font-bold text-teal-600 dark:text-teal-400">{s.id}</p>
-                                  <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800">
+                                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                    darkMode 
+                                      ? 'bg-slate-800 text-slate-300 border-slate-700' 
+                                      : 'bg-teal-50 text-teal-700 border-teal-200'
+                                  }`}>
                                     {s.role || 'นักศึกษา'}
                                   </span>
                                 </td>
@@ -3451,7 +3479,11 @@ export default function App() {
                             <h4 className={`font-bold text-base truncate ${theme.heading}`}>{activeEChartStudent.name}</h4>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
                               <span className={`font-mono ${theme.subText}`}>{activeEChartStudent.id}</span>
-                              <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-semibold text-[10px]">
+                              <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border ${
+                                darkMode 
+                                  ? 'bg-slate-800 text-slate-300 border-slate-700' 
+                                  : 'bg-teal-50 text-teal-700 border-teal-200'
+                              }`}>
                                 {activeEChartStudent.role || 'นักศึกษา'}
                               </span>
                               <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 font-mono font-bold text-[10px]">
@@ -4178,7 +4210,9 @@ export default function App() {
                       <p className={`font-bold ${theme.heading}`}>{s.name}</p>
                     </div>
                     <div className="text-right">
-                      <span className="text-[11px] px-2 py-1 rounded bg-slate-200 dark:bg-slate-800">{s.faculty}</span>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-md border ${
+                        darkMode ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-200'
+                      }`}>{s.faculty}</span>
                       {s.allergies && s.allergies.length > 0 && <p className="text-[10px] text-rose-500 font-bold mt-1">⚠️ แพ้ยา</p>}
                     </div>
                   </button>

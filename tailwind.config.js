@@ -1,6 +1,7 @@
 ﻿/** @type {import('tailwindcss').Config} */
 // พาเลตต์สีประจำมหาวิทยาลัยกาฬสินธุ์ (ฟ้าคราม / Leadwort blue) ใช้แทนชุดสี teal เดิมทั้งเว็บ
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {

@@ -370,8 +370,8 @@ export default function StudentPortal({
               <Icon size={15} className="shrink-0" />
               <span>{t.label}</span>
               {showBadge && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                  active ? 'bg-white text-teal-700' : pendingCount > 0 ? 'bg-amber-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  active ? 'bg-white text-teal-700' : pendingCount > 0 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                 }`}>
                   {pendingCount > 0 ? pendingCount : myRequests.length}
                 </span>
