@@ -53,8 +53,17 @@ export async function listRequests(): Promise<Req[]> {
   if (sb) {
     try {
       const { data, error } = await sb.from('requests').select('*').order('created_at', { ascending: false }).limit(500);
-      if (!error && data) return data.map(fromRow);
-    } catch {}
+      if (!error && data) {
+        const mapped = data.map(fromRow);
+        writeLocal(mapped);
+        return mapped;
+      }
+      if (error) {
+        console.error('Error fetching requests from Supabase:', error);
+      }
+    } catch (err) {
+      console.error('Exception fetching requests from Supabase:', err);
+    }
   }
   return readLocal().sort(sortDesc);
 }
@@ -71,8 +80,17 @@ export async function createRequest(input: { type: ReqType; email: string; name:
   if (sb) {
     try {
       const { error } = await sb.from('requests').insert(toRow(req));
-      if (!error) return req;
-    } catch {}
+      if (error) {
+        console.error('Supabase request insert error:', error);
+        throw new Error(error.message || 'ไม่สามารถส่งคำขอขึ้นคลาวด์ได้');
+      }
+      writeLocal([req, ...readLocal().filter(r => r.id !== req.id)]);
+      return req;
+    } catch (err) {
+      console.error('Failed to save request to Supabase:', err);
+      writeLocal([req, ...readLocal().filter(r => r.id !== req.id)]);
+      throw err;
+    }
   }
   writeLocal([req, ...readLocal()]);
   return req;
@@ -88,28 +106,61 @@ export async function updateRequest(id: string, patch: Partial<Pick<Req, 'status
       if (patch.adminNote !== undefined) row.admin_note = patch.adminNote;
       if (patch.payload !== undefined) row.payload = patch.payload;
       const { error } = await sb.from('requests').update(row).eq('id', id);
-      if (!error) return;
-    } catch {}
+      if (error) {
+        console.error('Supabase request update error:', error);
+      }
+    } catch (err) {
+      console.error('Failed to update request on Supabase:', err);
+    }
   }
   writeLocal(readLocal().map(r => (r.id === id ? { ...r, ...patch, updatedAt } : r)));
 }
 
-// โหลดคำขอแบบอัปเดตอัตโนมัติ (ดึงซ้ำทุก intervalMs มิลลิวินาที)
-export function useRequests(enabled: boolean, intervalMs = 5000) {
+// โหลดคำขอแบบอัปเดตอัตโนมัติ (Supabase Realtime + Polling สำรอง)
+export function useRequests(enabled: boolean, intervalMs = 4000) {
   const [requests, setRequests] = useState<Req[]>([]);
   const [loaded, setLoaded] = useState(false);
+
   const refresh = useCallback(async () => {
     const list = await listRequests();
     setRequests(list);
     setLoaded(true);
   }, []);
+
   useEffect(() => {
     if (!enabled) return;
     refresh();
+
+    // 1. Supabase Realtime Subscription (WebSocket อัปเดตทันทีเมื่อมีการเพิ่ม/แก้ข้อมูล)
+    const sb = getSupabase();
+    let channel: any = null;
+    if (sb) {
+      try {
+        channel = sb.channel('public:requests-realtime')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
+            refresh();
+          })
+          .subscribe();
+      } catch (err) {
+        console.warn('Realtime subscription error:', err);
+      }
+    }
+
+    // 2. Polling สำรองเพื่อความมั่นใจ 100%
     const t = setInterval(refresh, intervalMs);
+
+    // 3. LocalStorage Event (ข้ามแท็บในเครื่องเดียวกัน)
     const onStorage = (e: StorageEvent) => { if (e.key === LS_KEY) refresh(); };
     window.addEventListener('storage', onStorage);
-    return () => { clearInterval(t); window.removeEventListener('storage', onStorage); };
+
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('storage', onStorage);
+      if (channel && sb) {
+        sb.removeChannel(channel);
+      }
+    };
   }, [enabled, intervalMs, refresh]);
+
   return { requests, loaded, refresh };
 }

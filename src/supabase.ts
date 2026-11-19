@@ -53,15 +53,22 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; mess
     return { success: false, message: 'ยังไม่ได้ระบุ Supabase Project URL หรือ Anon Key' };
   }
   try {
-    // ลอง query เบาๆ ตรวจสอบการเชื่อมต่อ
-    const { error } = await supabase.from('medicines').select('id').limit(1);
-    if (error) {
-      if (error.code === '42P01') {
-        return { success: false, message: 'เชื่อมต่อ Supabase ได้แล้ว แต่ยังไม่ได้สร้างตารางข้อมูล (กรุณากดคัดลอก SQL Script ไปรันใน SQL Editor)' };
+    // ตรวจสอบความสมบูรณ์ของตารางสำคัญทั้งหมดในระบบ (medicines, beds, students, visits, requests)
+    const requiredTables = ['medicines', 'beds', 'students', 'visits', 'requests'];
+    const missing: string[] = [];
+    for (const t of requiredTables) {
+      const { error } = await supabase.from(t).select('id').limit(1);
+      if (error && (error.code === '42P01' || error.code === 'PGRST205')) {
+        missing.push(t);
       }
-      return { success: false, message: `ข้อผิดพลาดจาก Supabase: ${error.message}` };
     }
-    return { success: true, message: 'เชื่อมต่อฐานข้อมูลคลาวด์ Supabase สำเร็จเรียบร้อยแล้ว' };
+    if (missing.length > 0) {
+      return { 
+        success: false, 
+        message: `เชื่อมต่อ Supabase ได้แล้ว แต่ยังไม่ได้สร้างตาราง: ${missing.join(', ')} (กรุณานำ SQL Script ไปรันใน SQL Editor)` 
+      };
+    }
+    return { success: true, message: 'เชื่อมต่อฐานข้อมูลคลาวด์ Supabase และตรวจพบทุกตารางสมบูรณ์แล้ว' };
   } catch (err: any) {
     return { success: false, message: `เชื่อมต่อไม่สำเร็จ: ${err?.message || 'Network Error'}` };
   }

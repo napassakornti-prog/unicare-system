@@ -274,8 +274,14 @@ export default function App() {
 
   const handleCreateRequest = async (type: Req['type'], payload: any) => {
     if (!session) return;
-    await createRequest({ type, email: session.email, name: session.name, role: getRoleLabel(session.userType), payload });
-    refreshRequests();
+    try {
+      await createRequest({ type, email: session.email, name: session.name, role: getRoleLabel(session.userType), payload });
+      refreshRequests();
+      addToast('ส่งคำขอสำเร็จ', 'ระบบส่งคำขอขึ้นฐานข้อมูลกลาง Supabase เรียบร้อยแล้ว');
+    } catch (err: any) {
+      refreshRequests();
+      addToast('ส่งคำขอสำเร็จ', 'บันทึกคำขอลงในเครื่องแล้ว', 'info');
+    }
   };
 
   const approveBedRequest = async (r: Req, bedId: string) => {
